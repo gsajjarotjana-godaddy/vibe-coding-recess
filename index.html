@@ -422,7 +422,7 @@
         <section class="panel preview-wrap" aria-labelledby="preview-heading">
           <div class="panel-header">
             <h2 id="preview-heading">Cartoon preview</h2>
-            <span>Cartoon-style cutout composited over a scenic backdrop.</span>
+            <span>Cartoon-style cutout on a scenic backdrop. The free image API may rate-limit; this page retries and spaces requests.</span>
           </div>
           <div class="preview-stage" role="img" aria-label="Scenic preview stage">
             <div class="preview-inner" id="preview-inner">
@@ -448,6 +448,8 @@
         const messageInput = document.getElementById("message");
 
         let busy = false;
+        /** Gentle spacing so rapid clicks do not hammer the free API */
+        let nextAllowedSendAt = 0;
 
         function initials(name) {
           const parts = name.trim().split(/\s+/);
@@ -466,9 +468,35 @@
           ].join(" ");
         }
 
+        /** Smaller payload + random seed reduces duplicate-cache hits and server load slightly */
         function pollinationsUrl(prompt) {
           const base = "https://image.pollinations.ai/prompt/" + encodeURIComponent(prompt);
-          return base + "?width=768&height=768&nologo=true&seed=" + String(Math.floor(Math.random() * 1e9));
+          return (
+            base +
+            "?width=640&height=640&nologo=true&seed=" +
+            String(Math.floor(Math.random() * 1e9)) +
+            "&nocache=" +
+            String(Date.now())
+          );
+        }
+
+        function delay(ms) {
+          return new Promise(function (resolve) {
+            setTimeout(resolve, ms);
+          });
+        }
+
+        /** Retry-After can be seconds (number) or an HTTP-date; browser may hide this header on cross-origin responses. */
+        function retryAfterMs(res, attemptIndex) {
+          var h = res.headers.get("Retry-After");
+          if (h) {
+            var sec = parseInt(h, 10);
+            if (!isNaN(sec) && sec >= 0 && sec < 86400) return sec * 1000;
+            var t = Date.parse(h);
+            if (!isNaN(t)) return Math.max(0, t - Date.now());
+          }
+          var base = 6000 * Math.pow(2, Math.min(attemptIndex, 5));
+          return Math.min(120000, base + Math.floor(Math.random() * 2000));
         }
 
         /** Remove green screen; returns PNG data URL */
@@ -545,14 +573,30 @@
           });
         }
 
-        async function fetchCartoon(prompt) {
-          const res = await fetch(pollinationsUrl(prompt), { method: "GET" });
-          if (!res.ok) throw new Error("Image service returned " + res.status);
-          const blob = await res.blob();
-          if (!blob.type.startsWith("image")) {
-            throw new Error("Unexpected response type");
+        async function fetchCartoon(prompt, onRetry) {
+          var maxAttempts = 6;
+          for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+            var res = await fetch(pollinationsUrl(prompt), { method: "GET", cache: "no-store" });
+            if (res.ok) {
+              var blob = await res.blob();
+              if (!blob.type.startsWith("image")) {
+                throw new Error("Unexpected response type");
+              }
+              return loadImageFromBlob(blob);
+            }
+            if (res.status === 429 || res.status === 503) {
+              var waitMs = retryAfterMs(res, attempt - 1);
+              if (onRetry) {
+                onRetry(waitMs, attempt, maxAttempts);
+              }
+              await delay(waitMs);
+              continue;
+            }
+            throw new Error("Image service returned " + res.status);
           }
-          return loadImageFromBlob(blob);
+          throw new Error(
+            "Image service is rate-limited (429). Wait a few minutes or try again later — free tiers share capacity."
+          );
         }
 
         function renderPreview(pngDataUrl) {
@@ -616,6 +660,12 @@
           const text = messageInput.value.trim();
           if (!text) return;
 
+          var throttleWait = Math.max(0, nextAllowedSendAt - Date.now());
+          if (throttleWait > 0) {
+            setStatus("Please wait " + Math.ceil(throttleWait / 1000) + "s before generating another image.", true);
+            return;
+          }
+
           busy = true;
           sendBtn.disabled = true;
           setStatus("Requesting cartoon illustration…");
@@ -624,7 +674,17 @@
           renderLoading();
 
           try {
-            const img = await fetchCartoon(prompt);
+            const img = await fetchCartoon(prompt, function (waitMs, attempt, max) {
+              setStatus(
+                "Image service is busy (rate limit). Retrying in " +
+                  Math.ceil(waitMs / 1000) +
+                  "s… (" +
+                  attempt +
+                  "/" +
+                  max +
+                  ")"
+              );
+            });
             const png = chromaKeyGreenToPng(img);
             var displayUrl = png || rasterToDataUrl(img, 900, "image/jpeg", 0.92);
             if (!displayUrl) displayUrl = img.src;
@@ -641,8 +701,14 @@
             console.error(err);
             previewInner.innerHTML =
               '<p class="preview-placeholder">Something went wrong. Check your connection or try again.</p>';
-            setStatus(err.message || "Generation failed.", true);
+            var msg = err.message || "Generation failed.";
+            if (/429|rate/i.test(msg)) {
+              msg +=
+                " Tip: wait 2–5 minutes, refresh the page, then try one message at a time.";
+            }
+            setStatus(msg, true);
           } finally {
+            nextAllowedSendAt = Date.now() + 10000;
             busy = false;
             sendBtn.disabled = false;
             messageInput.focus();
