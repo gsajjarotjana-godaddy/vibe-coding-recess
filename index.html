@@ -400,6 +400,99 @@
         height: 100%;
         object-fit: cover;
       }
+
+      /* Battle arena (two cartoons clash → one winner) */
+      .battle-arena {
+        display: flex;
+        flex-direction: row;
+        align-items: flex-end;
+        justify-content: center;
+        gap: 0.35rem;
+        width: 100%;
+        min-height: 220px;
+        padding: 0.25rem 0;
+      }
+
+      .battle-arena .fighter {
+        flex: 1;
+        margin: 0;
+        display: flex;
+        justify-content: center;
+        align-items: flex-end;
+        max-width: 42%;
+        transition: transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.55s ease,
+          filter 0.55s ease;
+      }
+
+      .battle-arena .fighter img {
+        max-width: 100%;
+        max-height: min(38vh, 220px);
+        width: auto;
+        height: auto;
+        object-fit: contain;
+        filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.45));
+      }
+
+      .battle-vs {
+        flex: 0 0 auto;
+        align-self: center;
+        font-weight: 800;
+        font-size: 1.35rem;
+        letter-spacing: 0.08em;
+        color: rgba(255, 255, 255, 0.95);
+        text-shadow: 0 2px 16px rgba(0, 0, 0, 0.65), 0 0 24px rgba(124, 231, 200, 0.35);
+        animation: vs-pulse 0.45s ease-in-out infinite alternate;
+      }
+
+      @keyframes vs-pulse {
+        from {
+          transform: scale(1);
+          opacity: 0.85;
+        }
+        to {
+          transform: scale(1.08);
+          opacity: 1;
+        }
+      }
+
+      .battle-arena.battle-rumble .fighter-a {
+        animation: rumble-left 0.38s ease-in-out infinite alternate;
+      }
+
+      .battle-arena.battle-rumble .fighter-b {
+        animation: rumble-right 0.38s ease-in-out infinite alternate;
+      }
+
+      @keyframes rumble-left {
+        from {
+          transform: translateX(0) rotate(-2deg);
+        }
+        to {
+          transform: translateX(10px) rotate(3deg);
+        }
+      }
+
+      @keyframes rumble-right {
+        from {
+          transform: translateX(0) rotate(2deg);
+        }
+        to {
+          transform: translateX(-10px) rotate(-3deg);
+        }
+      }
+
+      .battle-arena.battle-decided .battle-winner {
+        transform: scale(1.08);
+        filter: drop-shadow(0 0 18px rgba(124, 231, 200, 0.55));
+        z-index: 2;
+      }
+
+      .battle-arena.battle-decided .battle-loser {
+        opacity: 0;
+        transform: translateY(90%) scale(0.35) rotate(12deg);
+        filter: blur(2px) grayscale(0.3);
+        pointer-events: none;
+      }
     </style>
   </head>
   <body>
@@ -428,7 +521,7 @@
         <section class="panel" aria-labelledby="chat-heading">
           <div class="panel-header">
             <h2 id="chat-heading">Room chat</h2>
-            <span>Everyone picks a name. Each message becomes a cartoon in the preview.</span>
+            <span>Everyone picks a name. When two cartoons land in the preview, they battle — only one stays.</span>
           </div>
           <div id="messages" class="messages" role="log" aria-live="polite" aria-relevant="additions"></div>
           <form id="composer" class="composer" autocomplete="off">
@@ -459,13 +552,13 @@
         <section class="panel preview-wrap" aria-labelledby="preview-heading">
           <div class="panel-header">
             <h2 id="preview-heading">Cartoon preview</h2>
-            <span>Every new cartoon stacks here on the scenic backdrop. The free image API may rate-limit; this page retries and spaces requests.</span>
+            <span>Two at once = arena battle; the loser is knocked off. One champion remains on the scenic backdrop.</span>
           </div>
           <div class="preview-stage" id="preview-stage" role="img" aria-label="Scenic preview stage">
             <div class="preview-inner" id="preview-inner">
               <p class="preview-placeholder">
-                Send a chat message to generate an illustration. Images are created on demand (may take a few
-                seconds).
+                Send a chat message to generate a cartoon. Add a second while one is on stage — they battle and only one
+                wins (may take a few seconds).
               </p>
             </div>
           </div>
@@ -488,7 +581,7 @@
         let busy = false;
         /** Gentle spacing so rapid clicks do not hammer the free API */
         let nextAllowedSendAt = 0;
-        /** All generated cutouts shown together in the scenic preview */
+        /** Champ + challenger become one winner after each battle */
         let previewLayers = [];
 
         function removeLoadingOverlay() {
@@ -518,7 +611,7 @@
             var ph = document.createElement("p");
             ph.className = "preview-placeholder";
             ph.textContent =
-              "Send chat messages to generate illustrations; each cartoon appears here together on the scenic background.";
+              "Send a message to spawn a cartoon. Send another while one is on stage — the two battle and only the winner stays.";
             previewInner.appendChild(ph);
             return;
           }
@@ -536,9 +629,75 @@
           previewInner.appendChild(wrap);
         }
 
-        function appendPreviewLayer(displayUrl, altText) {
-          previewLayers.push({ url: displayUrl, alt: altText || "Generated cartoon cutout" });
+        function runBattleAnimation(a, b, winnerIsA) {
+          return new Promise(function (resolve) {
+            previewInner.innerHTML = "";
+            var arena = document.createElement("div");
+            arena.className = "battle-arena";
+            arena.setAttribute("role", "img");
+            arena.setAttribute("aria-label", "Cartoon battle");
+
+            var fa = document.createElement("figure");
+            fa.className = "fighter fighter-a";
+            var ia = document.createElement("img");
+            ia.src = a.url;
+            ia.alt = a.alt || "Fighter A";
+            fa.appendChild(ia);
+
+            var vs = document.createElement("div");
+            vs.className = "battle-vs";
+            vs.textContent = "VS";
+
+            var fb = document.createElement("figure");
+            fb.className = "fighter fighter-b";
+            var ib = document.createElement("img");
+            ib.src = b.url;
+            ib.alt = b.alt || "Fighter B";
+            fb.appendChild(ib);
+
+            arena.appendChild(fa);
+            arena.appendChild(vs);
+            arena.appendChild(fb);
+            previewInner.appendChild(arena);
+
+            void arena.offsetWidth;
+            arena.classList.add("battle-rumble");
+
+            window.setTimeout(function () {
+              arena.classList.remove("battle-rumble");
+              arena.classList.add("battle-decided");
+              if (winnerIsA) {
+                fa.classList.add("battle-winner");
+                fb.classList.add("battle-loser");
+              } else {
+                fb.classList.add("battle-winner");
+                fa.classList.add("battle-loser");
+              }
+              window.setTimeout(resolve, 850);
+            }, 2600);
+          });
+        }
+
+        async function resolvePreviewAfterPush() {
+          if (previewLayers.length < 2) {
+            renderPreviewLayers();
+            return;
+          }
+          if (previewLayers.length > 2) {
+            previewLayers = previewLayers.slice(-2);
+          }
+          var a = previewLayers[0];
+          var b = previewLayers[1];
+          var winnerIsA = Math.random() < 0.5;
+          setStatus("Battle! Two cartoons clash…");
+          await runBattleAnimation(a, b, winnerIsA);
+          previewLayers = [winnerIsA ? a : b];
           renderPreviewLayers();
+        }
+
+        async function addPreviewLayer(displayUrl, altText) {
+          previewLayers.push({ url: displayUrl, alt: altText || "Generated cartoon cutout" });
+          await resolvePreviewAfterPush();
         }
 
         function initials(name) {
@@ -756,17 +915,15 @@
             const png = chromaKeyGreenToPng(img);
             var displayUrl = png || rasterToDataUrl(img, 900, "image/jpeg", 0.92);
             if (!displayUrl) displayUrl = img.src;
-            appendPreviewLayer(displayUrl, name + ": " + text);
+            removeLoadingOverlay();
+            await addPreviewLayer(displayUrl, name + ": " + text);
             var thumb = png || thumbnailDataUrl(img, 160);
             appendMessage(name, text, thumb);
             messageInput.value = "";
-            removeLoadingOverlay();
             setStatus(
               png
-                ? previewLayers.length +
-                  " cartoon(s) on the scenic background (green screen removed)."
-                : previewLayers.length +
-                  " image(s) shown (could not process transparency in this browser)."
+                ? "Champion on stage (green screen removed). Send another cartoon to challenge them."
+                : "Champion on stage. Send another cartoon to challenge them."
             );
           } catch (err) {
             console.error(err);
