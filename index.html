@@ -298,19 +298,56 @@
         z-index: 1;
         height: 100%;
         min-height: 260px;
-        display: grid;
-        place-items: center;
-        padding: 1.5rem;
+        padding: 1rem 1.25rem 1.5rem;
+        overflow-y: auto;
       }
 
-      .preview-inner img {
-        max-width: min(88%, 360px);
-        max-height: min(70vh, 340px);
+      .preview-collage {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+        gap: 0.65rem;
+        align-items: end;
+        justify-items: center;
+        width: 100%;
+      }
+
+      .preview-figure {
+        margin: 0;
+        width: 100%;
+        max-width: 180px;
+        display: flex;
+        justify-content: center;
+        align-items: flex-end;
+      }
+
+      .preview-figure img {
+        max-width: 100%;
+        max-height: clamp(96px, 18vh, 200px);
         width: auto;
         height: auto;
         object-fit: contain;
-        filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.45));
+        filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.42));
         image-rendering: auto;
+      }
+
+      .preview-loading-overlay {
+        position: absolute;
+        inset: 0;
+        z-index: 10;
+        display: grid;
+        place-items: center;
+        align-content: center;
+        gap: 0.75rem;
+        background: rgba(10, 14, 20, 0.55);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+      }
+
+      .preview-loading-overlay p {
+        margin: 0;
+        font-size: 0.95rem;
+        color: rgba(255, 255, 255, 0.92);
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
       }
 
       .preview-placeholder {
@@ -422,9 +459,9 @@
         <section class="panel preview-wrap" aria-labelledby="preview-heading">
           <div class="panel-header">
             <h2 id="preview-heading">Cartoon preview</h2>
-            <span>Cartoon-style cutout on a scenic backdrop. The free image API may rate-limit; this page retries and spaces requests.</span>
+            <span>Every new cartoon stacks here on the scenic backdrop. The free image API may rate-limit; this page retries and spaces requests.</span>
           </div>
-          <div class="preview-stage" role="img" aria-label="Scenic preview stage">
+          <div class="preview-stage" id="preview-stage" role="img" aria-label="Scenic preview stage">
             <div class="preview-inner" id="preview-inner">
               <p class="preview-placeholder">
                 Send a chat message to generate an illustration. Images are created on demand (may take a few
@@ -441,6 +478,7 @@
       (function () {
         const messagesEl = document.getElementById("messages");
         const composer = document.getElementById("composer");
+        const previewStage = document.getElementById("preview-stage");
         const previewInner = document.getElementById("preview-inner");
         const statusEl = document.getElementById("status");
         const sendBtn = document.getElementById("send-btn");
@@ -450,6 +488,58 @@
         let busy = false;
         /** Gentle spacing so rapid clicks do not hammer the free API */
         let nextAllowedSendAt = 0;
+        /** All generated cutouts shown together in the scenic preview */
+        let previewLayers = [];
+
+        function removeLoadingOverlay() {
+          var el = document.getElementById("preview-loading-overlay");
+          if (el) el.remove();
+        }
+
+        function showLoadingOverlay() {
+          removeLoadingOverlay();
+          var ov = document.createElement("div");
+          ov.id = "preview-loading-overlay";
+          ov.className = "preview-loading-overlay";
+          ov.setAttribute("role", "status");
+          ov.setAttribute("aria-live", "polite");
+          var sp = document.createElement("div");
+          sp.className = "spinner";
+          var p = document.createElement("p");
+          p.textContent = "Drawing your cartoon…";
+          ov.appendChild(sp);
+          ov.appendChild(p);
+          previewStage.appendChild(ov);
+        }
+
+        function renderPreviewLayers() {
+          previewInner.innerHTML = "";
+          if (!previewLayers.length) {
+            var ph = document.createElement("p");
+            ph.className = "preview-placeholder";
+            ph.textContent =
+              "Send chat messages to generate illustrations; each cartoon appears here together on the scenic background.";
+            previewInner.appendChild(ph);
+            return;
+          }
+          var wrap = document.createElement("div");
+          wrap.className = "preview-collage";
+          previewLayers.forEach(function (layer) {
+            var fig = document.createElement("figure");
+            fig.className = "preview-figure";
+            var img = document.createElement("img");
+            img.src = layer.url;
+            img.alt = layer.alt || "Generated cartoon cutout";
+            fig.appendChild(img);
+            wrap.appendChild(fig);
+          });
+          previewInner.appendChild(wrap);
+        }
+
+        function appendPreviewLayer(displayUrl, altText) {
+          previewLayers.push({ url: displayUrl, alt: altText || "Generated cartoon cutout" });
+          renderPreviewLayers();
+        }
 
         function initials(name) {
           const parts = name.trim().split(/\s+/);
@@ -599,28 +689,6 @@
           );
         }
 
-        function renderPreview(pngDataUrl) {
-          previewInner.innerHTML = "";
-          const img = document.createElement("img");
-          img.src = pngDataUrl;
-          img.alt = "Generated cartoon cutout";
-          previewInner.appendChild(img);
-        }
-
-        function renderLoading() {
-          previewInner.innerHTML = "";
-          const wrap = document.createElement("div");
-          wrap.style.textAlign = "center";
-          const sp = document.createElement("div");
-          sp.className = "spinner";
-          sp.setAttribute("aria-hidden", "true");
-          const p = document.createElement("p");
-          p.className = "preview-placeholder";
-          p.textContent = "Drawing your cartoon…";
-          wrap.appendChild(sp);
-          wrap.appendChild(p);
-          previewInner.appendChild(wrap);
-        }
 
         function appendMessage(name, text, thumbDataUrl) {
           const row = document.createElement("div");
@@ -671,7 +739,7 @@
           setStatus("Requesting cartoon illustration…");
 
           const prompt = buildPrompt(text);
-          renderLoading();
+          showLoadingOverlay();
 
           try {
             const img = await fetchCartoon(prompt, function (waitMs, attempt, max) {
@@ -688,19 +756,25 @@
             const png = chromaKeyGreenToPng(img);
             var displayUrl = png || rasterToDataUrl(img, 900, "image/jpeg", 0.92);
             if (!displayUrl) displayUrl = img.src;
-            renderPreview(displayUrl);
+            appendPreviewLayer(displayUrl, name + ": " + text);
             var thumb = png || thumbnailDataUrl(img, 160);
             appendMessage(name, text, thumb);
             messageInput.value = "";
+            removeLoadingOverlay();
             setStatus(
               png
-                ? "Cutout composited over the scenic background (green screen removed)."
-                : "Showing raw image (could not process transparency in this browser)."
+                ? previewLayers.length +
+                  " cartoon(s) on the scenic background (green screen removed)."
+                : previewLayers.length +
+                  " image(s) shown (could not process transparency in this browser)."
             );
           } catch (err) {
             console.error(err);
-            previewInner.innerHTML =
-              '<p class="preview-placeholder">Something went wrong. Check your connection or try again.</p>';
+            removeLoadingOverlay();
+            if (!previewLayers.length) {
+              previewInner.innerHTML =
+                '<p class="preview-placeholder">Something went wrong. Check your connection or try again.</p>';
+            }
             var msg = err.message || "Generation failed.";
             if (/429|rate/i.test(msg)) {
               msg +=
@@ -708,6 +782,7 @@
             }
             setStatus(msg, true);
           } finally {
+            removeLoadingOverlay();
             nextAllowedSendAt = Date.now() + 10000;
             busy = false;
             sendBtn.disabled = false;
