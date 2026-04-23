@@ -1,0 +1,365 @@
+:root {
+  --bg: #0c0f14;
+  --panel: #151a22;
+  --line: rgba(255, 255, 255, 0.08);
+  --text: #e9edf5;
+  --muted: #8b95a8;
+  --accent: #6ee7c5;
+  --warn: #f6c16e;
+  --err: #f0a0a0;
+  --podium-1: #e8c45c;
+  --podium-2: #9fb4c4;
+  --podium-3: #b8926a;
+  font-family: "DM Sans", system-ui, sans-serif;
+  line-height: 1.45;
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(1000px 500px at 0% 0%, #1a2238 0%, transparent 50%),
+    radial-gradient(800px 500px at 100% 20%, #231a2e 0%, transparent 45%), var(--bg);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+a {
+  color: var(--accent);
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.2;
+  margin: 0 0 0.5rem;
+}
+
+p {
+  margin: 0 0 0.6rem;
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.shell {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 2.5rem;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 1.25rem 1.4rem;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}
+
+input,
+textarea,
+button,
+select {
+  font: inherit;
+  color: var(--text);
+}
+
+input[type="text"],
+input[type="number"],
+textarea,
+select {
+  width: 100%;
+  max-width: 100%;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #0a0c10;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+textarea:focus,
+select:focus {
+  outline: 2px solid rgba(110, 231, 197, 0.35);
+  border-color: rgba(110, 231, 197, 0.4);
+}
+
+textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+button {
+  cursor: pointer;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #1e2430;
+  color: var(--text);
+  padding: 0.6rem 1rem;
+  font-weight: 600;
+}
+
+button.primary {
+  background: linear-gradient(135deg, #6ee7c5, #4fc4e0);
+  color: #081016;
+  border: none;
+}
+
+button.primary:disabled,
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+button.ghost {
+  background: transparent;
+  border: 1px solid var(--line);
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--bg);
+  background: var(--accent);
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  font-weight: 700;
+}
+
+.timer {
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--warn);
+}
+
+.host {
+  color: var(--warn);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.podium {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  align-items: flex-end;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.podium .slot {
+  text-align: center;
+  min-width: 120px;
+  padding: 1rem 0.9rem 1.2rem;
+  border-radius: 12px;
+  background: #11161f;
+  border: 1px solid var(--line);
+}
+
+.podium .slot.rank1 {
+  border-color: var(--podium-1);
+  min-height: 140px;
+  order: 2;
+}
+.podium .slot.rank2 {
+  border-color: var(--podium-2);
+  min-height: 110px;
+  order: 1;
+}
+.podium .slot.rank3 {
+  border-color: var(--podium-3);
+  min-height: 100px;
+  order: 3;
+}
+
+.podium .rank {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+}
+.podium .name {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.podium .pts {
+  color: var(--accent);
+  margin-top: 0.4rem;
+  font-weight: 600;
+}
+
+table.standings {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+table.standings th,
+table.standings td {
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+table.standings th {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+table.standings tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.hint {
+  background: rgba(255, 255, 255, 0.04);
+  border-left: 3px solid var(--accent);
+  padding: 0.65rem 0.8rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin: 0.6rem 0 0;
+  border-radius: 0 8px 8px 0;
+}
+
+ul.examples {
+  margin: 0.3rem 0 0 1.1rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+ul.members {
+  list-style: none;
+  padding: 0;
+  margin: 0.4rem 0 0;
+}
+ul.members li {
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.guess-box {
+  margin: 0.6rem 0 0;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #0a0c10;
+}
+
+.guess-box label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.guess-box textarea {
+  margin-top: 0.35rem;
+  min-height: 56px;
+}
+
+.reveal {
+  background: #0b1018;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.65rem 0.8rem;
+  font-size: 0.9rem;
+  color: var(--text);
+  margin: 0.3rem 0 0.6rem;
+  white-space: pre-wrap;
+}
+
+.pill {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(110, 231, 197, 0.1);
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+/* Words that count as a match with the true prompt (scoring word set) */
+span.word-hit {
+  color: #3ddc84;
+  font-weight: 700;
+  text-shadow: 0 0 20px rgba(61, 220, 132, 0.25);
+}
+
+.mypoints-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.5rem 0.85rem;
+  margin: 0 -0.2rem 0.75rem;
+  border-radius: 12px;
+  background: rgba(12, 15, 20, 0.92);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.mypoints-bar .label {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.mypoints-bar .value {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.guess-reveal-line {
+  margin: 0.4rem 0 0.25rem;
+  line-height: 1.5;
+  font-size: 0.95rem;
+  word-break: break-word;
+}
