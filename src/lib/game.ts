@@ -39,10 +39,10 @@ export const R1_TEMPLATES: { id: number; line: string }[] = [
 ];
 
 export const EXAMPLE_PROMPTS: string[] = [
-  "A 3-button Pomodoro with confetti when a session ends",
-  "A one-screen weather strip with a moody gradient background",
-  "A counter for “cups of water today” with a tiny plant that grows",
-  "A random lunch picker that only uses emojis and checkboxes",
+  "A 3-button Pomodoro timer with confetti animation when the timer ends",
+  "A one-screen weather app with gradient background showing temperature and conditions",
+  "A daily water counter with cups tracker and a growing plant animation",
+  "A random lunch picker using only emojis with selectable checkbox options",
 ];
 
 const STOP = new Set([
