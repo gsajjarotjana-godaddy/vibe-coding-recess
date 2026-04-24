@@ -22,6 +22,8 @@
   --podium-1: #e8c45c;
   --podium-2: #9fb4c4;
   --podium-3: #b8926a;
+  /* space for .figma-footer (fixed) — matches its padding + one line + safe area */
+  --figma-footer-reserve: calc(1.5rem + 1.2 * 0.75rem + 2rem + env(safe-area-inset-bottom, 0px));
   font-family: "Manrope", system-ui, sans-serif;
   line-height: 1.45;
   color: var(--text);
@@ -82,6 +84,7 @@ p {
   flex-direction: column;
   position: relative;
   overflow-x: hidden;
+  padding-bottom: var(--figma-footer-reserve);
   /* small white asterisk — hotspot at center of 20×20 asset; base set in setPublicAssetBase.ts */
   cursor: var(--figma-cursor-asterisk, auto);
 }
@@ -682,12 +685,17 @@ p {
 }
 
 .figma-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
   text-align: center;
   font-family: "Menlo", "SFMono-Regular", ui-monospace, monospace;
   font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.12);
-  padding: 1.5rem 3.75rem 2rem;
-  margin-top: auto;
+  padding: 1.5rem 3.75rem calc(2rem + env(safe-area-inset-bottom, 0px));
+  margin: 0;
   max-width: 1440px;
   margin-left: auto;
   margin-right: auto;
@@ -698,8 +706,10 @@ p {
 /* In-app */
 .figma-app {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  padding-bottom: var(--figma-footer-reserve);
 }
 
 .figma-content {

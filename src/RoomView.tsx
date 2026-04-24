@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getAuth } from "firebase/auth";
 import {
   collection,
@@ -10,6 +10,8 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { getFirebase } from "./firebase";
+import { useLongPress } from "./hooks/useLongPress";
+import { resetEntireSession } from "./lib/roomReset";
 import type { MemberDoc, RoomDoc, Phase } from "./lib/types";
 import {
   EXAMPLE_PROMPTS,
@@ -75,6 +77,20 @@ export function RoomView({ roomId, onLeave }: Props) {
   const me = uid ? members[uid] : undefined;
   const hostMemberId = useMemo(() => getHostMemberId(members), [members]);
   const isHost = Boolean(hostMemberId && uid && hostMemberId === uid);
+  const hadMe = useRef(false);
+  const leftAfterRemoval = useRef(false);
+
+  useEffect(() => {
+    if (me) hadMe.current = true;
+  }, [me]);
+
+  useEffect(() => {
+    if (leftAfterRemoval.current) return;
+    if (hadMe.current && uid && !members[uid]) {
+      leftAfterRemoval.current = true;
+      onLeave();
+    }
+  }, [uid, members, onLeave]);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -179,6 +195,18 @@ export function RoomView({ roomId, onLeave }: Props) {
     },
     []
   );
+
+  const hostResetEntireSession = useCallback(() => {
+    if (
+      !window.confirm(
+        "Reset the room? Everyone will return to the name screen. The first person to join again will be the new host."
+      )
+    ) {
+      return;
+    }
+    void withBusy(() => resetEntireSession(db, roomId));
+  }, [withBusy, db, roomId]);
+  const hostSessionResetLongPress = useLongPress(hostResetEntireSession, { enabled: true });
 
   async function hostStartR1() {
     await withBusy(async () => {
@@ -350,14 +378,30 @@ export function RoomView({ roomId, onLeave }: Props) {
           <div className="figma-player-grid" aria-label="Players in the room">
             {memberList.map((m, i) => {
               const hue = PLAYER_HUES[i % PLAYER_HUES.length]!;
+              const isHostRow = Boolean(hostMemberId && m.id === hostMemberId);
+              const hostResetHere = isHostRow;
               return (
-                <div key={m.id} className={"figma-player-tile figma-player-tile--" + hue}>
+                <div
+                  key={m.id}
+                  className={"figma-player-tile figma-player-tile--" + hue}
+                  style={
+                    hostResetHere
+                      ? { touchAction: "manipulation" as const, userSelect: "none" as const, cursor: "default" as const }
+                      : undefined
+                  }
+                  title={
+                    hostResetHere
+                      ? "Hold to reset the room and let everyone re-enter their names"
+                      : undefined
+                  }
+                  {...(hostResetHere ? hostSessionResetLongPress : {})}
+                >
                   <div className="figma-avatar" aria-hidden="true">
                     {initials(m.name)}
                   </div>
                   <div className="figma-player-name">
                     {m.name}
-                    {hostMemberId && m.id === hostMemberId && (
+                    {isHostRow && (
                       <span className="figma-pill figma-pill--host"> host</span>
                     )}
                   </div>
@@ -761,15 +805,38 @@ export function RoomView({ roomId, onLeave }: Props) {
       <div className="figma-card figma-card--players" style={{ marginTop: 12 }}>
         <h3>Players in room</h3>
         <ul className="members" style={{ margin: 0 }}>
-          {memberList.map((m) => (
-            <li key={m.id}>
-              <span>{m.name}</span>
-              {m.r1Submitted && <span className="figma-pill figma-pill--small"> R1 in</span>}
-            </li>
-          ))}
+          {memberList.map((m) => {
+            const isHostRow = Boolean(hostMemberId && m.id === hostMemberId);
+            const hostResetHere = isHostRow;
+            return (
+              <li
+                key={m.id}
+                style={
+                  hostResetHere
+                    ? { touchAction: "manipulation" as const, userSelect: "none" as const, cursor: "default" as const }
+                    : undefined
+                }
+                title={
+                  hostResetHere
+                    ? "Hold to reset the room and let everyone re-enter their names"
+                    : undefined
+                }
+                {...(hostResetHere ? hostSessionResetLongPress : {})}
+              >
+                <span>
+                  {m.name}
+                  {isHostRow && <span className="figma-pill figma-pill--host"> host</span>}
+                </span>
+                {m.r1Submitted && <span className="figma-pill figma-pill--small"> R1 in</span>}
+              </li>
+            );
+          })}
         </ul>
       </div>
     </div>
+    <footer className="figma-footer figma-landing__chrome">
+      Designed by Grace Sajjarotjana
+    </footer>
     </div>
   );
 }

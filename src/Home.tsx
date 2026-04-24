@@ -19,7 +19,9 @@ import type { MemberDoc, RoomDoc } from "./lib/types";
 import { R1_TEMPLATES } from "./lib/game";
 import { FigmaHomeDecor } from "./FigmaHomeDecor";
 import { getHostMemberId, sortMembersByJoinOrder } from "./lib/host";
+import { resetEntireSession } from "./lib/roomReset";
 import { publicAsset } from "./lib/publicAsset";
+import { useLongPress } from "./hooks/useLongPress";
 
 type Props = {
   onEnterGame: () => void;
@@ -53,12 +55,30 @@ function lobbyIconSrc(hue: (typeof LOBBY_HUES)[number]) {
 
 type MemberItem = { id: string; name: string };
 
-function LobbyPlayerCell({ m, index }: { m: MemberItem; index: number }) {
+type LobbyPlayerCellProps = {
+  m: MemberItem;
+  index: number;
+  isHostName: boolean;
+  onHostReset: () => void;
+};
+
+function LobbyPlayerCell({ m, index, isHostName, onHostReset }: LobbyPlayerCellProps) {
   const hue = LOBBY_HUES[index % 3]!;
+  const longPress = useLongPress(onHostReset, { enabled: isHostName });
+  const longPressable = isHostName;
   return (
     <div
       className={`figma-lobby-cell figma-lobby-cell--${hue}`}
-      style={{ animationDelay: `${Math.min(index, 8) * 35}ms` }}
+      style={
+        {
+          animationDelay: `${Math.min(index, 8) * 35}ms`,
+          ...(longPressable
+            ? { touchAction: "manipulation" as const, userSelect: "none" as const, cursor: "default" as const }
+            : {}),
+        }
+      }
+      title={isHostName ? "Hold to reset the room and let everyone re-enter their names" : undefined}
+      {...(longPressable ? longPress : {})}
     >
       <div className={`figma-lobby-avatar figma-lobby-avatar--${hue}`}>
         <img
@@ -69,7 +89,15 @@ function LobbyPlayerCell({ m, index }: { m: MemberItem; index: number }) {
           alt=""
         />
       </div>
-      <p className="figma-lobby-name">{m.name}</p>
+      <p className="figma-lobby-name">
+        {m.name}
+        {isHostName && (
+          <span className="figma-pill figma-pill--host" style={{ marginLeft: 6, verticalAlign: "middle" }}>
+            {" "}
+            host
+          </span>
+        )}
+      </p>
     </div>
   );
 }
@@ -101,6 +129,43 @@ export function Home({ onEnterGame }: Props) {
   );
   const hostMemberId = useMemo(() => getHostMemberId(members), [members]);
   const isHost = Boolean(uid && hostMemberId && hostMemberId === uid);
+
+  const wasMemberInLobby = useRef(false);
+  useEffect(() => {
+    if (lobbyMode && uid && members[uid]) {
+      wasMemberInLobby.current = true;
+    }
+  }, [lobbyMode, uid, members]);
+  useEffect(() => {
+    if (!lobbyMode || !uid) return;
+    if (!wasMemberInLobby.current) return;
+    if (members[uid]) return;
+    wasMemberInLobby.current = false;
+    setLobbyMode(false);
+    setName("");
+    setMembers({});
+    clearHostOnlyMsg();
+    setErr(null);
+  }, [lobbyMode, uid, members, clearHostOnlyMsg]);
+
+  const hostResetEntireSession = useCallback(async () => {
+    if (
+      !window.confirm(
+        "Reset the room? Everyone will return to the name screen. The first person to join again will be the new host."
+      )
+    ) {
+      return;
+    }
+    setErr(null);
+    setBusy(true);
+    try {
+      await resetEntireSession(db, roomId);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Reset failed");
+    } finally {
+      setBusy(false);
+    }
+  }, [db, roomId]);
 
   const { row1, row2, tailRows, row1Stagger, row2Stagger, tailStagger } = useMemo(() => {
     const items: MemberItem[] = memberList.map((m) => ({ id: m.id, name: m.name }));
@@ -238,6 +303,7 @@ export function Home({ onEnterGame }: Props) {
 
   async function handleLeave() {
     if (lobbyMode && uid) {
+      wasMemberInLobby.current = false;
       setErr(null);
       setBusy(true);
       try {
@@ -370,7 +436,13 @@ export function Home({ onEnterGame }: Props) {
                   }
                 >
                   {row1.map((m, i) => (
-                    <LobbyPlayerCell key={m.id} m={m} index={i} />
+                    <LobbyPlayerCell
+                      key={m.id}
+                      m={m}
+                      index={i}
+                      isHostName={Boolean(hostMemberId && m.id === hostMemberId)}
+                      onHostReset={hostResetEntireSession}
+                    />
                   ))}
                 </div>
                 {row2.length > 0 ? (
@@ -383,7 +455,15 @@ export function Home({ onEnterGame }: Props) {
                   >
                     {row2.map((m, j) => {
                       const i = 5 + j;
-                      return <LobbyPlayerCell key={m.id} m={m} index={i} />;
+                      return (
+                        <LobbyPlayerCell
+                          key={m.id}
+                          m={m}
+                          index={i}
+                          isHostName={Boolean(hostMemberId && m.id === hostMemberId)}
+                          onHostReset={hostResetEntireSession}
+                        />
+                      );
                     })}
                   </div>
                 ) : (
@@ -406,7 +486,15 @@ export function Home({ onEnterGame }: Props) {
                     >
                       {r.map((m, j) => {
                         const i = start + j;
-                        return <LobbyPlayerCell key={m.id} m={m} index={i} />;
+                        return (
+                          <LobbyPlayerCell
+                            key={m.id}
+                            m={m}
+                            index={i}
+                            isHostName={Boolean(hostMemberId && m.id === hostMemberId)}
+                            onHostReset={hostResetEntireSession}
+                          />
+                        );
                       })}
                     </div>
                   );
