@@ -16,6 +16,7 @@ export function createInitialRoomDoc(createdAt: number): RoomDoc {
     r1DurationSec: 120,
     r2DurationMins: 12,
     r2EndsAt: null,
+    r2IntroAt: null,
     presentationOrder: null,
     r3GuessingUnlocked: false,
     resultsRevealed: false,

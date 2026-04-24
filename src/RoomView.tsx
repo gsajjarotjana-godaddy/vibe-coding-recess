@@ -11,7 +11,12 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { getFirebase } from "./firebase";
-import { type MemberDoc, type RoomDoc, migrateRoomDoc } from "./lib/types";
+import {
+  type MemberDoc,
+  type RoomDoc,
+  firestoreNumberOrTimeToMs,
+  migrateRoomDoc,
+} from "./lib/types";
 import {
   R1_MIN_WORDS,
   allGuessedForTarget,
@@ -22,8 +27,11 @@ import {
   EXAMPLE_PROMPTS,
   scoreGuess,
 } from "./lib/game";
-import { getHostMemberId } from "./lib/host";
+import { getHostMemberId, sortMembersByJoinOrder } from "./lib/host";
+import { resetEntireSession } from "./lib/roomReset";
 import { HighlightText } from "./components/HighlightText";
+import { LobbyPlayerGrid } from "./components/LobbyPlayerGrid";
+import { InstructionTimeBadge } from "./components/InstructionTimeBadge";
 import { SessionPageLayout, SessionWaitingBlock } from "./components/SessionPageLayout";
 import { FigmaHomeDecor } from "./FigmaHomeDecor";
 
@@ -31,6 +39,24 @@ type Props = {
   roomId: string;
   onLeave: () => void;
 };
+
+function r1WritingTimeBadge(room: RoomDoc) {
+  const start = firestoreNumberOrTimeToMs(room.r1StartedAt as unknown);
+  const dur = room.r1DurationSec || 120;
+  if (start == null) {
+    return <InstructionTimeBadge type="static" totalSeconds={dur} />;
+  }
+  return <InstructionTimeBadge type="live" endAtMs={start + dur * 1000} />;
+}
+
+function r2CodingHeaderTimeBadge(room: RoomDoc) {
+  const end = firestoreNumberOrTimeToMs(room.r2EndsAt as unknown);
+  const windowSec = (room.r2DurationMins ?? 12) * 60;
+  if (end == null) {
+    return <InstructionTimeBadge type="static" totalSeconds={windowSec} />;
+  }
+  return <InstructionTimeBadge type="live" endAtMs={end} />;
+}
 
 const INAPP_CTA_ERR_MS = 2500;
 
@@ -76,7 +102,6 @@ export function RoomView({ roomId, onLeave }: Props) {
   const isHost = Boolean(hostMemberId && uid && hostMemberId === uid);
   const hadMe = useRef(false);
   const leftAfterRemoval = useRef(false);
-  const r1Auto = useRef(false);
   const r2Auto = useRef(false);
 
   const clearCtaErr = useCallback(() => {
@@ -167,13 +192,25 @@ export function RoomView({ roomId, onLeave }: Props) {
   }, [me, room?.phase, tUid, me?.r3Guesses, room?.r3CurrentPresenter]);
 
   const uids = useMemo(() => Object.keys(members), [members]);
+  const allR1Submitted =
+    uids.length >= 2 && uids.every((id) => members[id]?.r1Submitted);
+
+  const lobbyMembersByJoin = useMemo(
+    () =>
+      sortMembersByJoinOrder(Object.values(members)).map((m) => ({
+        id: m.id,
+        name: m.name,
+        r1Submitted: m.r1Submitted,
+      })),
+    [members]
+  );
 
   /** Background icon drift: on only for waiting phases and inline “you’re in / wait for others” states. */
   const decorDriftEnabled = useMemo(() => {
     if (!room) return true;
     const p = room.phase;
-    if (p === "r1_waiting" || p === "r2_waiting" || p === "r3_wait") return true;
-    if (p === "r1_writing" && me?.r1Submitted) return true;
+    if (p === "r2_waiting" || p === "r3_wait") return true;
+    if (p === "r1_writing" && (me?.r1Submitted || allR1Submitted)) return true;
     if (p === "r2_coding" && me?.r2VibeDone) return true;
     if (p === "r3_guess") {
       if (tUid && uid && uid === tUid) return true;
@@ -183,7 +220,7 @@ export function RoomView({ roomId, onLeave }: Props) {
       }
     }
     return false;
-  }, [room, me, tUid, uid]);
+  }, [room, me, tUid, uid, allR1Submitted]);
 
   const withBusy = useCallback(async (fn: () => Promise<void>) => {
     setErr(null);
@@ -197,43 +234,54 @@ export function RoomView({ roomId, onLeave }: Props) {
     }
   }, []);
 
+  const hostResetEntireSession = useCallback(() => {
+    if (
+      !window.confirm(
+        "Reset the room? Everyone will return to the name screen. The first person to join again will be the new host."
+      )
+    ) {
+      return;
+    }
+    void withBusy(() => resetEntireSession(db, roomId));
+  }, [withBusy, db, roomId]);
+
   async function handleLeave() {
     if (!uid) {
       onLeave();
       return;
     }
+    if (isHost) {
+      if (
+        !window.confirm(
+          "End the session for everyone? All players return to the name screen, and the next person to join is the new host."
+        )
+      ) {
+        return;
+      }
+      setBusy(true);
+      setErr(null);
+      try {
+        await resetEntireSession(db, roomId);
+        leftAfterRemoval.current = true;
+        onLeave();
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "Could not end session");
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     setBusy(true);
     try {
       await deleteDoc(doc(db, "rooms", roomId, "members", uid));
+      leftAfterRemoval.current = true;
+      onLeave();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not leave");
     } finally {
       setBusy(false);
     }
-    onLeave();
   }
-
-  // Auto-advance R1: all submitted -> r1_waiting
-  useEffect(() => {
-    if (!room || room.phase !== "r1_writing" || uids.length < 2) return;
-    if (!uids.every((id) => members[id]?.r1Submitted)) return;
-    if (r1Auto.current) return;
-    r1Auto.current = true;
-    void (async () => {
-      try {
-        await updateDoc(doc(db, "rooms", roomId), { phase: "r1_waiting" as const });
-      } catch {
-        r1Auto.current = false;
-      }
-    })();
-  }, [room, uids, members, db, roomId]);
-
-  // Reset r1 auto when leaving r1_writing
-  useEffect(() => {
-    if (room?.phase !== "r1_waiting") {
-      r1Auto.current = false;
-    }
-  }, [room?.phase]);
 
   // Auto-advance R2: all vibe done -> r2_waiting
   useEffect(() => {
@@ -276,7 +324,12 @@ export function RoomView({ roomId, onLeave }: Props) {
   // ——— Host actions ———
   async function goR1IntroToWriting() {
     await withBusy(async () => {
-      await updateDoc(doc(db, "rooms", roomId), { phase: "r1_writing" as const });
+      if (!room) return;
+      await updateDoc(doc(db, "rooms", roomId), {
+        phase: "r1_writing" as const,
+        r1StartedAt: Date.now(),
+        r1DurationSec: room.r1DurationSec ?? 120,
+      });
     });
   }
 
@@ -292,14 +345,23 @@ export function RoomView({ roomId, onLeave }: Props) {
       uids.forEach((id) => {
         batch.update(doc(db, "rooms", roomId, "members", id), { r2ForUid: m[id]!, r2VibeDone: false });
       });
-      batch.update(doc(db, "rooms", roomId), { phase: "r2_intro" as const, r2EndsAt: null });
+      batch.update(doc(db, "rooms", roomId), {
+        phase: "r2_intro" as const,
+        r2EndsAt: null,
+      });
       await batch.commit();
     });
   }
 
   async function goR2IntroToCoding() {
     await withBusy(async () => {
-      await updateDoc(doc(db, "rooms", roomId), { phase: "r2_coding" as const });
+      if (!room) return;
+      const mins = room.r2DurationMins ?? 12;
+      const r2EndsAt = Date.now() + mins * 60 * 1000;
+      await updateDoc(doc(db, "rooms", roomId), {
+        phase: "r2_coding" as const,
+        r2EndsAt,
+      });
     });
   }
 
@@ -458,7 +520,7 @@ export function RoomView({ roomId, onLeave }: Props) {
     if (p === "r1_intro") {
       return { show: true, label: "Start round", onAction: goR1IntroToWriting };
     }
-    if (p === "r1_waiting") {
+    if (p === "r1_writing" && allR1Submitted) {
       return { show: true, label: "Continue", onAction: goR1WaitToR2Intro };
     }
     if (p === "r2_intro") {
@@ -538,6 +600,28 @@ export function RoomView({ roomId, onLeave }: Props) {
       </header>
 
       <main className="figma-hero figma-landing__chrome figma-hero--static-head">
+        {room && room.phase === "r1_writing" && me?.r1Submitted ? (
+          <>
+            {err && <p className="figma-error" style={{ marginTop: 0 }}>{err}</p>}
+            <h1 className="figma-title">
+              <span className="figma-title-strong">Guess the</span>{" "}
+              <span className="figma-title-accent">
+                <span className="figma-title-pr">Pr</span>ompt
+              </span>
+            </h1>
+            <p className="figma-subtitle">
+              {allR1Submitted
+                ? "Everyone’s in. The host can continue to Round 2 when ready."
+                : "Waiting for other players.."}
+            </p>
+            <LobbyPlayerGrid
+              members={lobbyMembersByJoin}
+              hostMemberId={hostMemberId}
+              onHostReset={hostResetEntireSession}
+              variant="r1-wait"
+            />
+          </>
+        ) : (
       <div className="figma-content shell-figma-inner">
         {showPointsBar && me && (
           <div className="mypoints-bar" role="status" aria-live="polite" style={{ marginBottom: 12 }}>
@@ -575,47 +659,36 @@ export function RoomView({ roomId, onLeave }: Props) {
           </div>
         )}
 
-        {room.phase === "r1_writing" && me && (
-          <div className="figma-instruction-stack">
+        {room.phase === "r1_writing" && me && !me.r1Submitted && (
+          <div className="figma-card figma-card--instruction">
             <SessionPageLayout
               titleStart="Round 1 – "
               titleAccent="Create Prompt"
+              headerRight={r1WritingTimeBadge(room)}
               subtitle={
                 "Write a prompt of at least 10 words that describes a fun, one-screen app or tool with a clear purpose.\n" +
                 "Everyone will have 2 minutes to write a prompt."
               }
             />
-            <div className="figma-card">
-              <p className="label">Your prompt (freeform)</p>
-              <textarea
-                value={r1Text}
-                onChange={(e) => setR1Text(e.target.value)}
-                maxLength={2000}
-                disabled={me.r1Submitted}
-                placeholder="What should someone else vibe-code? Be specific enough to be guessable later."
-                rows={8}
-              />
-              {me.r1Submitted ? (
-                <SessionWaitingBlock
-                  title="You’re in"
-                  subtitle="Wait for everyone to submit. The host will continue to Round 2 when the group is ready."
-                />
-              ) : (
-                <div className="row" style={{ marginTop: 10 }}>
-                  <button className="figma-btn figma-btn-primary" type="button" disabled={busy} onClick={submitR1}>
-                    Submit prompt
-                  </button>
-                </div>
-              )}
+            <p className="label">Your prompt</p>
+            <textarea
+              value={r1Text}
+              onChange={(e) => setR1Text(e.target.value)}
+              maxLength={2000}
+              placeholder="What should someone else vibe-code?"
+              rows={8}
+            />
+            <div className="row" style={{ marginTop: 10 }}>
+              <button
+                type="button"
+                className="figma-btn-start figma-btn-start--lobby"
+                disabled={busy}
+                onClick={submitR1}
+              >
+                Submit prompt <span className="figma-btn-arrow">→</span>
+              </button>
             </div>
           </div>
-        )}
-
-        {room.phase === "r1_waiting" && (
-          <SessionWaitingBlock
-            title="Waiting for the host"
-            subtitle="The host can continue once everyone has submitted a prompt. Hang tight — Round 2 explains the vibe-coding round."
-          />
         )}
 
         {room.phase === "r2_intro" && (
@@ -637,6 +710,7 @@ export function RoomView({ roomId, onLeave }: Props) {
             <SessionPageLayout
               titleStart="Build this – "
               titleAccent="Vibe in Cursor"
+              headerRight={r2CodingHeaderTimeBadge(room)}
               subtitle="Time to Vibe Code in Cursor!"
             />
             <div className="figma-card">
@@ -968,6 +1042,7 @@ export function RoomView({ roomId, onLeave }: Props) {
         )}
 
       </div>
+        )}
       </main>
 
       <footer className="figma-footer figma-landing__chrome">Designed by Grace Sajjarotjana</footer>

@@ -214,6 +214,45 @@ p {
   text-align: left;
 }
 
+.figma-session-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.figma-session-head .figma-session-title {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.figma-session-head__tr {
+  flex-shrink: 0;
+  padding-top: 0.2rem;
+  line-height: 1;
+}
+
+.figma-instruction-time {
+  display: inline-block;
+  font-family: "Menlo", "SFMono-Regular", ui-monospace, monospace;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: #fff;
+  border: 1px solid rgba(16, 203, 255, 0.35);
+  border-radius: 8px;
+  padding: 0.3rem 0.55rem;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.figma-instruction-time--low {
+  border-color: rgba(255, 150, 120, 0.55);
+  color: #ffc9b8;
+}
+
 .figma-session-title {
   font-size: 40px;
   line-height: 1.1;
@@ -788,6 +827,17 @@ p {
   color: #cae893;
 }
 
+/* R1: waiting for others’ prompts — dim until submitted, then “in” pill */
+.figma-lobby-cell--r1-pending .figma-lobby-avatar,
+.figma-lobby-cell--r1-pending .figma-lobby-name {
+  opacity: 0.55;
+  transition: opacity 0.35s ease;
+}
+.figma-lobby-cell--r1-in .figma-lobby-avatar,
+.figma-lobby-cell--r1-in .figma-lobby-name {
+  opacity: 1;
+}
+
 @keyframes figma-lobby-pop {
   from {
     opacity: 0;
@@ -893,10 +943,6 @@ p {
 
 .figma-card--compact h1 {
   font-size: 1.4rem;
-}
-
-.figma-card--players {
-  margin-top: 1rem;
 }
 
 /** Instruction step: left-align title, subtitle, and content (e.g. examples) */
@@ -1221,20 +1267,6 @@ ul.examples {
   margin: 0.3rem 0 0 1.1rem;
   color: var(--muted);
   font-size: 1.05rem; /* match .figma-session-subtitle */
-}
-
-ul.members {
-  list-style: none;
-  padding: 0;
-  margin: 0.4rem 0 0;
-}
-ul.members li {
-  padding: 0.3rem 0;
-  border-bottom: 1px solid rgba(51, 81, 90, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
 }
 
 .guess-box {

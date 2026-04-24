@@ -1,6 +1,21 @@
 import type { Timestamp } from "firebase/firestore";
 
 /**
+ * Custom Firestore fields may be stored as a number (ms) or a Timestamp. Normalize to epoch ms.
+ */
+export function firestoreNumberOrTimeToMs(v: unknown): number | null {
+  if (v == null) return null;
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "object" && v !== null) {
+    const t = v as { toMillis?: () => number; seconds?: number; _seconds?: number; nanoseconds?: number };
+    if (typeof t.toMillis === "function") return t.toMillis();
+    if (typeof t.seconds === "number") return t.seconds * 1000 + (t.nanoseconds != null ? t.nanoseconds / 1e6 : 0);
+    if (typeof t._seconds === "number") return t._seconds * 1000;
+  }
+  return null;
+}
+
+/**
  * Coarse game step. Legacy values removed from active flow; old rooms in Firestore
  * are migrated in RoomView on load if needed.
  */
@@ -26,13 +41,14 @@ export interface RoomDoc {
   createdAt: number;
   /** All clients join RoomView when true (host set on Let’s start). */
   sessionOpen: boolean;
-  /** @deprecated R1 was timed; no longer used in new flow. */
+  /** R1: epoch ms when the current 2:00 window started (intro and/or writing). */
   r1StartedAt: number | null;
-  /** @deprecated R1 was timed. */
   r1DurationSec: number;
   r2DurationMins: number;
-  /** R2 timebox optional; vibe-done flow does not require it. */
+  /** R2 build deadline (epoch ms), set when coding phase starts. */
   r2EndsAt: number | null;
+  /** R2 intro: epoch ms when the “time budget” countdown for this page started. */
+  r2IntroAt: number | null;
   /** @deprecated use presentedUids + r3 pick loop. */
   presentationOrder: string[] | null;
   r3GuessingUnlocked: boolean;
@@ -78,10 +94,11 @@ export function migrateRoomDoc(d: Record<string, unknown> | null): RoomDoc {
     phase: migrateOldPhase(phase) as Phase,
     createdAt: typeof d.createdAt === "number" ? d.createdAt : Date.now(),
     sessionOpen: Boolean(d.sessionOpen),
-    r1StartedAt: d.r1StartedAt != null ? (d.r1StartedAt as number) : null,
+    r1StartedAt: firestoreNumberOrTimeToMs(d.r1StartedAt),
     r1DurationSec: typeof d.r1DurationSec === "number" ? d.r1DurationSec : 120,
     r2DurationMins: typeof d.r2DurationMins === "number" ? d.r2DurationMins : 12,
-    r2EndsAt: d.r2EndsAt != null ? (d.r2EndsAt as number) : null,
+    r2EndsAt: firestoreNumberOrTimeToMs(d.r2EndsAt),
+    r2IntroAt: firestoreNumberOrTimeToMs(d.r2IntroAt),
     presentationOrder: Array.isArray(d.presentationOrder) ? d.presentationOrder : null,
     r3GuessingUnlocked: Boolean(d.r3GuessingUnlocked),
     resultsRevealed: Boolean(d.resultsRevealed),
@@ -107,6 +124,7 @@ function createDefaultRoomForMigration(): RoomDoc {
     r1DurationSec: 120,
     r2DurationMins: 12,
     r2EndsAt: null,
+    r2IntroAt: null,
     presentationOrder: null,
     r3GuessingUnlocked: false,
     resultsRevealed: false,
@@ -126,6 +144,8 @@ function migrateOldPhase(phase: string): Phase {
     r3_guessing: "r3_guess",
   };
   if (map[phase]) return map[phase]!;
+  /** R1: host continues from the waiting grid; no separate “waiting for host” phase. */
+  if (phase === "r1_waiting") return "r1_writing";
   if (phase === "lobby" || phase === "results") return phase as Phase;
   if (
     (phase as Phase) &&

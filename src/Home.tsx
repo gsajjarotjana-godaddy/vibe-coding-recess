@@ -19,10 +19,9 @@ import type { MemberDoc } from "./lib/types";
 import { R1_TEMPLATES } from "./lib/game";
 import { createInitialRoomDoc } from "./lib/roomReset";
 import { FigmaHomeDecor } from "./FigmaHomeDecor";
+import { LobbyPlayerGrid } from "./components/LobbyPlayerGrid";
 import { getHostMemberId, sortMembersByJoinOrder } from "./lib/host";
 import { resetEntireSession } from "./lib/roomReset";
-import { publicAsset } from "./lib/publicAsset";
-import { useLongPress } from "./hooks/useLongPress";
 
 type Props = {
   onEnterGame: () => void;
@@ -43,66 +42,7 @@ const defaultMember = (): Omit<MemberDoc, "name" | "joinedAt"> => ({
   r2VibeDone: false,
 });
 
-/** blue → pink → green — Figma 892:34345 (colored 58px circle, icon, name) */
-const LOBBY_HUES = ["blue", "pink", "green"] as const;
-
 const HOST_ONLY_TIMER_MS = 2800;
-
-/** Icons in /public/figma — match circle hue (blue → pink → green) */
-function lobbyIconSrc(hue: (typeof LOBBY_HUES)[number]) {
-  if (hue === "green") return publicAsset("figma/lightbulb.svg");
-  if (hue === "blue") return publicAsset("figma/sparkles.svg");
-  return publicAsset("figma/lightning-bolt.svg"); /* pink */
-}
-
-type MemberItem = { id: string; name: string };
-
-type LobbyPlayerCellProps = {
-  m: MemberItem;
-  index: number;
-  isHostName: boolean;
-  onHostReset: () => void;
-};
-
-function LobbyPlayerCell({ m, index, isHostName, onHostReset }: LobbyPlayerCellProps) {
-  const hue = LOBBY_HUES[index % 3]!;
-  const longPress = useLongPress(onHostReset, { enabled: isHostName });
-  const longPressable = isHostName;
-  return (
-    <div
-      className={`figma-lobby-cell figma-lobby-cell--${hue}`}
-      style={
-        {
-          animationDelay: `${Math.min(index, 8) * 35}ms`,
-          ...(longPressable
-            ? { touchAction: "manipulation" as const, userSelect: "none" as const, cursor: "default" as const }
-            : {}),
-        }
-      }
-      title={isHostName ? "Hold to reset the room and let everyone re-enter their names" : undefined}
-      {...(longPressable ? longPress : {})}
-    >
-      <div className={`figma-lobby-avatar figma-lobby-avatar--${hue}`}>
-        <img
-          src={lobbyIconSrc(hue)}
-          width={24}
-          height={24}
-          className="figma-lobby-avatar__icon"
-          alt=""
-        />
-      </div>
-      <p className="figma-lobby-name">
-        {m.name}
-        {isHostName && (
-          <span className="figma-pill figma-pill--host" style={{ marginLeft: 6, verticalAlign: "middle" }}>
-            {" "}
-            host
-          </span>
-        )}
-      </p>
-    </div>
-  );
-}
 
 export function Home({ onEnterGame }: Props) {
   const { db } = getFirebase();
@@ -168,25 +108,6 @@ export function Home({ onEnterGame }: Props) {
       setBusy(false);
     }
   }, [db, roomId]);
-
-  const { row1, row2, tailRows, row1Stagger, row2Stagger, tailStagger } = useMemo(() => {
-    const items: MemberItem[] = memberList.map((m) => ({ id: m.id, name: m.name }));
-    const row1 = items.slice(0, 5);
-    const row2 = items.slice(5, 10);
-    const rest = items.slice(10);
-    const tailRows: MemberItem[][] = [];
-    for (let i = 0; i < rest.length; i += 5) {
-      tailRows.push(rest.slice(i, i + 5));
-    }
-    // Stagger (offset) only on the last row with people; other rows share one left edge
-    const n = items.length;
-    const row1Stagger = n <= 5 && row1.length > 0 && row1.length % 2 === 1;
-    const row2Stagger = n > 5 && n <= 10 && row2.length > 0 && row2.length % 2 === 1;
-    const tailStagger = tailRows.map(
-      (r, i) => i === tailRows.length - 1 && n > 10 && r.length > 0 && r.length % 2 === 1
-    );
-    return { row1, row2, tailRows, row1Stagger, row2Stagger, tailStagger };
-  }, [memberList]);
 
   useEffect(() => {
     let cancelled = false;
@@ -323,6 +244,30 @@ export function Home({ onEnterGame }: Props) {
 
   async function handleLeave() {
     if (lobbyMode && uid) {
+      if (isHost) {
+        if (
+          !window.confirm(
+            "End the session for everyone? All players return to the name screen, and the next person to join is the new host."
+          )
+        ) {
+          return;
+        }
+        wasMemberInLobby.current = false;
+        setErr(null);
+        setBusy(true);
+        try {
+          await resetEntireSession(db, roomId);
+          setLobbyMode(false);
+          setMembers({});
+          setName("");
+          clearHostOnlyMsg();
+        } catch (e) {
+          setErr(e instanceof Error ? e.message : "Could not end session");
+        } finally {
+          setBusy(false);
+        }
+        return;
+      }
       wasMemberInLobby.current = false;
       setErr(null);
       setBusy(true);
@@ -444,84 +389,15 @@ export function Home({ onEnterGame }: Props) {
         )}
 
         {lobbyMode && (
-          <div className="figma-lobby">
+          <>
             {err && <p className="figma-error">{err}</p>}
-            <div className="figma-lobby-box" aria-label="Players in the lobby">
-              <div className="figma-lobby-group">
-                <div
-                  className={
-                    row1Stagger
-                      ? "figma-lobby-row figma-lobby-row--r1 figma-lobby-row--stagger"
-                      : "figma-lobby-row figma-lobby-row--r1"
-                  }
-                >
-                  {row1.map((m, i) => (
-                    <LobbyPlayerCell
-                      key={m.id}
-                      m={m}
-                      index={i}
-                      isHostName={Boolean(hostMemberId && m.id === hostMemberId)}
-                      onHostReset={hostResetEntireSession}
-                    />
-                  ))}
-                </div>
-                {row2.length > 0 ? (
-                  <div
-                    className={
-                      row2Stagger
-                        ? "figma-lobby-row figma-lobby-row--r2 figma-lobby-row--stagger"
-                        : "figma-lobby-row figma-lobby-row--r2"
-                    }
-                  >
-                    {row2.map((m, j) => {
-                      const i = 5 + j;
-                      return (
-                        <LobbyPlayerCell
-                          key={m.id}
-                          m={m}
-                          index={i}
-                          isHostName={Boolean(hostMemberId && m.id === hostMemberId)}
-                          onHostReset={hostResetEntireSession}
-                        />
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div
-                    className="figma-lobby-row figma-lobby-row--r2 figma-lobby-row--placeholder"
-                    aria-hidden
-                  />
-                )}
-                {tailRows.map((r, ri) => {
-                  const start =
-                    10 + tailRows.slice(0, ri).reduce((acc, row) => acc + row.length, 0);
-                  return (
-                    <div
-                      key={ri}
-                      className={
-                        tailStagger[ri]
-                          ? "figma-lobby-row figma-lobby-row--r3 figma-lobby-row--stagger"
-                          : "figma-lobby-row figma-lobby-row--r3"
-                      }
-                    >
-                      {r.map((m, j) => {
-                        const i = start + j;
-                        return (
-                          <LobbyPlayerCell
-                            key={m.id}
-                            m={m}
-                            index={i}
-                            isHostName={Boolean(hostMemberId && m.id === hostMemberId)}
-                            onHostReset={hostResetEntireSession}
-                          />
-                        );
-                      })}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
+            <LobbyPlayerGrid
+              members={memberList.map((m) => ({ id: m.id, name: m.name }))}
+              hostMemberId={hostMemberId}
+              onHostReset={hostResetEntireSession}
+              variant="lobby"
+            />
+          </>
         )}
       </main>
 
