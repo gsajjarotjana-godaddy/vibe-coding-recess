@@ -1462,6 +1462,14 @@ ul.examples {
   border-color: rgba(202, 232, 147, 0.4);
 }
 
+.reveal--answer .reveal--answer-prompt {
+  margin: 0;
+  color: var(--figma-green);
+  font-weight: 700;
+  white-space: pre-wrap;
+  text-shadow: 0 0 20px rgba(202, 232, 147, 0.22);
+}
+
 /**
  * R3 reveal: card heading + “Guesses” + hidden placeholder — same as .figma-session-subtitle (1.05rem)
  */

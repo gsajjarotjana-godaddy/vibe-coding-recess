@@ -100,6 +100,23 @@ export function scoreGuess(guess: string, target: string): number {
   return hit;
 }
 
+/**
+ * R3: guesses and the “real prompt” are about the prompt the presenter was **assigned** in R2
+ * (that author’s `r1Prompt`), not the presenter’s own round-1 writing.
+ */
+export function r3AnswerPromptForPresenter(
+  presenterId: string,
+  members: Record<string, MemberDoc & { id: string }>
+): string {
+  const p = members[presenterId];
+  if (!p) return "";
+  const fromUid = p.r2ForUid;
+  if (fromUid && members[fromUid]) {
+    return members[fromUid].r1Prompt || "";
+  }
+  return p.r1Prompt || "";
+}
+
 export function totalScoreForPlayer(
   guesserId: string,
   members: Record<string, MemberDoc & { id: string }>
@@ -110,9 +127,9 @@ export function totalScoreForPlayer(
   let auto = 0;
   for (const targetId of uids) {
     if (targetId === guesserId) continue;
-    const target = members[targetId];
     const g = (me.r3Guesses && me.r3Guesses[targetId]) || "";
-    auto += scoreGuess(g, target.r1Prompt || "");
+    const truePrompt = r3AnswerPromptForPresenter(targetId, members);
+    auto += scoreGuess(g, truePrompt);
   }
   const manual = me.manualPointDelta || 0;
   return { auto, manual, total: auto + manual };

@@ -26,6 +26,7 @@ import {
   totalScoreForPlayer,
   pickNextPresenter,
   EXAMPLE_PROMPTS,
+  r3AnswerPromptForPresenter,
   scoreGuess,
 } from "./lib/game";
 import { getHostMemberId, sortMembersByJoinOrder } from "./lib/host";
@@ -574,7 +575,9 @@ export function RoomView({ roomId, onLeave }: Props) {
 
   const assignee = me && me.r2ForUid ? members[me.r2ForUid] : null;
   const currentPresenter = room.r3CurrentPresenter ? members[room.r3CurrentPresenter] : null;
-  const answerText = currentPresenter?.r1Prompt || "";
+  const answerText = room.r3CurrentPresenter
+    ? r3AnswerPromptForPresenter(room.r3CurrentPresenter, members)
+    : "";
 
   const isLastR3Reveal =
     (room.r3PresentedUids?.length ?? 0) + 1 >= uids.length && uids.length > 0;
@@ -960,7 +963,7 @@ export function RoomView({ roomId, onLeave }: Props) {
             {room.r3AnswerRevealed ? (
               <>
                 <div className="reveal reveal--prompt reveal--answer">
-                  <HighlightText as="div" text={answerText} target={answerText} />
+                  <div className="reveal--answer-prompt">{answerText}</div>
                 </div>
                 <div className="guess-reveal-block">
                   <p className="guess-reveal-section-title">Guesses</p>
