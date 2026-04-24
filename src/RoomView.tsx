@@ -182,6 +182,12 @@ export function RoomView({ roomId, onLeave }: Props) {
     if (me?.r1Prompt) setR1Text(me.r1Prompt);
   }, [me?.r1Prompt, me?.id]);
 
+  /** Legacy rooms: skip removed r3_present step and go straight to guessing. */
+  useEffect(() => {
+    if (!room || room.phase !== "r3_present" || !isHost) return;
+    void updateDoc(doc(db, "rooms", roomId), { phase: "r3_guess" as const, r3AnswerRevealed: false });
+  }, [room, isHost, db, roomId]);
+
   const tUid = room?.r3CurrentPresenter;
   useEffect(() => {
     if (!me || !room || room.phase !== "r3_guess" || !tUid) {
@@ -207,22 +213,15 @@ export function RoomView({ roomId, onLeave }: Props) {
     [members]
   );
 
-  /** Background icon drift: on only for waiting phases and inline “you’re in / wait for others” states. */
+  /** Background icon drift: on for waiting phases and inline “you’re in / wait for others” states. r3_guess stays static (no drift). */
   const decorDriftEnabled = useMemo(() => {
     if (!room) return true;
     const p = room.phase;
     if (p === "r2_waiting" || p === "r3_wait") return true;
     if (p === "r1_writing" && (me?.r1Submitted || allR1Submitted)) return true;
     if (p === "r2_coding" && me?.r2VibeDone) return true;
-    if (p === "r3_guess") {
-      if (tUid && uid && uid === tUid) return true;
-      if (tUid && me) {
-        const g = (me.r3Guesses && me.r3Guesses[tUid]) || "";
-        if (g.trim().length > 0) return true;
-      }
-    }
     return false;
-  }, [room, me, tUid, uid, allR1Submitted]);
+  }, [room, me, allR1Submitted]);
 
   const withBusy = useCallback(async (fn: () => Promise<void>) => {
     setErr(null);
@@ -384,16 +383,18 @@ export function RoomView({ roomId, onLeave }: Props) {
       await updateDoc(doc(db, "rooms", roomId), {
         r3CurrentPresenter: next,
         r3PickedRevealed: true,
-        phase: "r3_present" as const,
         r3AnswerRevealed: false,
       });
     });
   }
 
-  async function hostDonePresenting() {
+  async function hostR3PickToPresent() {
     await withBusy(async () => {
       if (!room?.r3CurrentPresenter) return;
-      await updateDoc(doc(db, "rooms", roomId), { phase: "r3_guess" as const, r3AnswerRevealed: false });
+      await updateDoc(doc(db, "rooms", roomId), {
+        phase: "r3_guess" as const,
+        r3AnswerRevealed: false,
+      });
     });
   }
 
@@ -513,11 +514,8 @@ export function RoomView({ roomId, onLeave }: Props) {
     if (p === "r3_intro") {
       return { show: true, label: "Start round", onAction: goR3IntroToPick };
     }
-    if (p === "r3_pick" && room.r3PickedRevealed !== true) {
-      return { show: true, label: "Randomize", onAction: hostRandomizePresenter, disabled: busy };
-    }
-    if (p === "r3_present") {
-      return { show: true, label: "Done presenting", onAction: hostDonePresenting, disabled: busy };
+    if (p === "r3_pick" && room.r3PickedRevealed && room.r3CurrentPresenter) {
+      return { show: true, label: "Done Sharing", onAction: hostR3PickToPresent, disabled: busy };
     }
     if (p === "r3_wait") {
       return { show: true, label: "Continue", onAction: hostR3WaitToReveal };
@@ -741,45 +739,82 @@ export function RoomView({ roomId, onLeave }: Props) {
         {room.phase === "r3_intro" && (
           <div className="figma-card figma-card--instruction">
             <SessionPageLayout
-              titleStart="Round 3 – "
-              titleAccent="Screen share & guess"
-              subtitle="One at a time you’ll share your build in the meeting. Everyone else will try to guess the *original* prompt. For every word in your guess that matches the real prompt, you get a point. Most points at the end wins."
+              titleStart="Round 3 - "
+              titleAccent="Share & Guess"
+              subtitle={
+                <ul className="figma-session-subtitle--bullets">
+                  <li>
+                    Each person will share their screen and generally share what they created without giving away any
+                    key words.
+                  </li>
+                  <li>Everyone else will try and guess the original prompt given.</li>
+                  <li>For every word in your guess that matches the real prompt, you get a point.</li>
+                  <li>The person with the most points at the end wins.</li>
+                </ul>
+              }
             />
           </div>
         )}
 
         {room.phase === "r3_pick" && (
-          <div className="figma-card">
-            <h2 className="figma-session-title" style={{ textAlign: "center", fontSize: "1.4rem" }}>
-              Who’s up next
-            </h2>
-            <p className="figma-waiting-sub" style={{ textAlign: "center" }}>
-              Host: tap <strong>Randomize</strong> in the top bar. Names already done this game won’t be picked again.
-            </p>
-          </div>
-        )}
-
-        {room.phase === "r3_present" && currentPresenter && room.r3PickedRevealed && (
-          <div className="figma-card">
-            <h2
-              className="figma-session-title"
-              style={{ textAlign: "center", fontSize: "2rem", lineHeight: 1.2 }}
-            >
-              Present: <span className="figma-session-title__accent">{currentPresenter.name}</span>
-            </h2>
-            <p className="figma-waiting-sub" style={{ textAlign: "center" }}>
-              Share your screen in the video call, walk through the build, then the host continues.
-            </p>
+          <div className="figma-card figma-card--r3-pick">
+            <div className="figma-r3-pick-hero">
+              {room.r3PickedRevealed && room.r3CurrentPresenter ? (
+                <div className="figma-r3-pick-picked">
+                  <div className="figma-r3-pick-picked-body">
+                    <h2 className="figma-r3-pick-title">Who’s Sharing?</h2>
+                    <p className="figma-r3-pick-hint figma-r3-pick-picked-sub">
+                      Share your screen and describe your build without giving away too many hints.
+                    </p>
+                    {currentPresenter ? (
+                      <h2 className="figma-session-title figma-r3-pick-reveal-name">
+                        <span className="figma-session-title__accent">{currentPresenter.name}</span>
+                      </h2>
+                    ) : null}
+                    {!isHost ? (
+                      <p className="figma-waiting-sub" style={{ margin: 0, textAlign: "center" }}>
+                        Waiting for the host to tap <strong>Done Sharing</strong> in the top bar.
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <h2 className="figma-r3-pick-title">Who’s Sharing?</h2>
+                  <p className="figma-r3-pick-hint">
+                    Share your screen and describe your build without giving away too many hints.
+                  </p>
+                  {isHost ? (
+                    <InAppCtaButton
+                      label="Randomize"
+                      disabled={busy}
+                      isHost={isHost}
+                      onNotHost={bumpNotHost}
+                      onAction={() => {
+                        clearCtaErr();
+                        void hostRandomizePresenter();
+                      }}
+                    />
+                  ) : (
+                    <p className="figma-waiting-sub" style={{ margin: 0, textAlign: "center" }}>
+                      Waiting for the host to pick the next presenter.
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         )}
 
         {room.phase === "r3_guess" && tUid && me && (
-          <div className="figma-card">
-            <h2 className="figma-card-title">Guess the original prompt</h2>
-            <p className="hint" style={{ marginTop: 0 }}>
-              <strong>{members[tUid]?.name || "?"}</strong> just shared. What was their Round 1 prompt? You get points
-              for words that match the real one.
-            </p>
+          <div className="figma-card figma-card--instruction">
+            <SessionPageLayout
+              titleStart="Round 3 – "
+              titleAccent="Guess the Prompt"
+              subtitle={
+                `${members[tUid]?.name || "?"} just shared. What was their Round 1 prompt? You get points for words that match the real one.`
+              }
+            />
             {uid === tUid ? (
               <p className="muted" style={{ color: "var(--accent)" }}>
                 You can’t guess your own prompt. Wait for the others to submit.
@@ -791,24 +826,22 @@ export function RoomView({ roomId, onLeave }: Props) {
               />
             ) : (
               <>
-                <label htmlFor="g-one" className="label">
-                  Your guess
-                </label>
+                <p className="label">Your guess</p>
                 <textarea
-                  id="g-one"
                   value={r3Line}
                   onChange={(e) => setR3Line(e.target.value)}
-                  rows={4}
+                  rows={8}
+                  maxLength={2000}
                   placeholder="Your best guess at their full prompt"
                 />
                 <div className="row" style={{ marginTop: 10 }}>
                   <button
-                    className="figma-btn figma-btn-primary"
                     type="button"
+                    className="figma-btn-start figma-btn-start--lobby"
                     disabled={busy}
                     onClick={submitR3Round}
                   >
-                    Submit
+                    Submit guess <span className="figma-btn-arrow">→</span>
                   </button>
                 </div>
               </>

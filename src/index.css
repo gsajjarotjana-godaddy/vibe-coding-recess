@@ -467,6 +467,10 @@ ul.figma-session-subtitle--bullets {
   flex: 0 0 auto;
 }
 
+.figma-topbar-cta__wrap--session .figma-btn-start {
+  white-space: nowrap;
+}
+
 .figma-btn-start {
   display: inline-flex;
   align-items: center;
@@ -988,6 +992,85 @@ ul.figma-session-subtitle--bullets {
 /** Instruction step: left-align title, subtitle, and content (e.g. examples) */
 .figma-card--instruction {
   text-align: left;
+}
+
+.figma-card--r3-pick {
+  /* ~square: one side length, capped by width and viewport height */
+  --r3-pick-size: min(94vw, 30rem, 88dvh);
+  width: var(--r3-pick-size);
+  max-width: 100%;
+  height: var(--r3-pick-size);
+  margin-left: auto;
+  margin-right: auto;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.figma-r3-pick-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: center;
+  gap: 1.25rem;
+  flex: 1;
+  min-height: 0;
+  padding: 2.5rem 0.25rem 0.75rem;
+  overflow: auto;
+}
+
+.figma-r3-pick-picked {
+  align-self: stretch;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  text-align: center;
+}
+
+.figma-r3-pick-picked-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1.25rem;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 0.5rem 0.5rem;
+}
+
+.figma-r3-pick-picked-sub.figma-r3-pick-hint {
+  max-width: 20rem;
+}
+
+.figma-r3-pick-reveal-name {
+  font-size: 60px;
+  line-height: 1.1;
+  text-align: center;
+  margin: 3.25rem 0 0;
+  font-weight: 400;
+}
+
+.figma-r3-pick-title {
+  font-size: 1.4rem;
+  font-weight: 500;
+  margin: 0;
+  line-height: 1.2;
+  text-align: center;
+  color: var(--figma-text);
+}
+
+.figma-r3-pick-hint {
+  color: var(--figma-text-muted);
+  font-size: 0.95rem;
+  line-height: 1.45;
+  text-align: center;
+  max-width: 24rem;
+  margin: 0;
 }
 
 .figma-card-title {
