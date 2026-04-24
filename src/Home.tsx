@@ -49,17 +49,6 @@ const HOST_ONLY_TIMER_MS = 2800;
 
 type MemberItem = { id: string; name: string };
 
-/** REMOVE: 6-name lobby preview (5+1 rows); set false for real members */
-const LOBBY_UI_PREVIEW_6_NAMES = true;
-const LOBBY_PREVIEW_6_MEMBERS: MemberItem[] = [
-  { id: "pv0", name: "Sam" },
-  { id: "pv1", name: "Morgan" },
-  { id: "pv2", name: "River" },
-  { id: "pv3", name: "Casey Kim" },
-  { id: "pv4", name: "Avery" },
-  { id: "pv5", name: "Riley Chen" },
-];
-
 function LobbyPlayerCell({ m, index }: { m: MemberItem; index: number }) {
   const hue = LOBBY_HUES[index % 3]!;
   return (
@@ -120,10 +109,7 @@ export function Home({ onEnterGame }: Props) {
   const isHost = Boolean(uid && hostMemberId && hostMemberId === uid);
 
   const { row1, row2, tailRows, row1Stagger, row2Stagger, tailStagger } = useMemo(() => {
-    const items: MemberItem[] =
-      LOBBY_UI_PREVIEW_6_NAMES && lobbyMode
-        ? LOBBY_PREVIEW_6_MEMBERS
-        : memberList.map((m) => ({ id: m.id, name: m.name }));
+    const items: MemberItem[] = memberList.map((m) => ({ id: m.id, name: m.name }));
     const row1 = items.slice(0, 5);
     const row2 = items.slice(5, 10);
     const rest = items.slice(10);
@@ -139,7 +125,7 @@ export function Home({ onEnterGame }: Props) {
       (r, i) => i === tailRows.length - 1 && n > 10 && r.length > 0 && r.length % 2 === 1
     );
     return { row1, row2, tailRows, row1Stagger, row2Stagger, tailStagger };
-  }, [lobbyMode, memberList]);
+  }, [memberList]);
 
   useEffect(() => {
     let cancelled = false;
