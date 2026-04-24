@@ -45,20 +45,16 @@ export const EXAMPLE_PROMPTS: string[] = [
   "A random lunch picker using only emojis with selectable checkbox options",
 ];
 
-const STOP = new Set([
-  "a", "an", "the", "and", "or", "to", "of", "in", "on", "for", "with", "that", "this", "it", "is", "are", "be", "as", "at", "by", "from",
-]);
-
 function tokenize(s: string): string[] {
   return s
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/)
     .map((t) => t.trim())
-    .filter((t) => t.length > 0 && !STOP.has(t));
+    .filter((t) => t.length > 0);
 }
 
-/** Words from the real prompt that count for scoring and highlighting. */
+/** All word tokens from the real prompt (including common words) for scoring and highlighting. */
 export function getScoringTokenSet(target: string): Set<string> {
   return new Set(tokenize(target));
 }
@@ -73,7 +69,7 @@ export function isWordInTargetSet(rawWord: string, set: Set<string>): boolean {
 }
 
 /**
- * Count how often each non-stopword token appears (for overlap scoring).
+ * Count how often each token appears (for overlap scoring).
  */
 function countTokenOccurrences(s: string): Map<string, number> {
   const m = new Map<string, number>();
