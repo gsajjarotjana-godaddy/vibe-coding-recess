@@ -82,15 +82,15 @@ p {
   flex-direction: column;
   position: relative;
   overflow-x: hidden;
-  /* small white asterisk — hotspot at center of 20×20 asset */
-  cursor: url("/figma/cursor-asterisk.svg") 10 10, auto;
+  /* small white asterisk — hotspot at center of 20×20 asset; base set in setPublicAssetBase.ts */
+  cursor: var(--figma-cursor-asterisk, auto);
 }
 
 .figma-landing .figma-btn-start:not(:disabled),
 .figma-landing .figma-name-submit:not(:disabled),
 .figma-landing .figma-name-pill__input,
 .figma-landing .figma-menu.figma-menu--button {
-  cursor: url("/figma/cursor-asterisk.svg") 10 10, auto;
+  cursor: var(--figma-cursor-asterisk, auto);
 }
 
 .figma-landing .figma-btn-start:disabled,

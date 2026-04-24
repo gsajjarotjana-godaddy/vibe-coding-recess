@@ -5,6 +5,7 @@
  */
 import { useCallback, useEffect, useRef } from "react";
 import type { CSSProperties } from "react";
+import { publicAsset } from "./lib/publicAsset";
 
 const FLOAT_N = 12;
 /**
@@ -310,7 +311,7 @@ export function FigmaHomeDecor() {
       {/* left-line.svg — bottom-left viewport edge, Figma px size (no viewport scaling) */}
       <div style={vector2Box}>
         <img
-          src="/figma/left-line.svg"
+          src={publicAsset("figma/left-line.svg")}
           alt=""
           style={{ display: "block", width: "100%", height: "100%", objectFit: "fill" }}
           width={273}
@@ -325,7 +326,7 @@ export function FigmaHomeDecor() {
           style={{ position: "absolute", top: yt(250), left: xl(267.95), width: "28px", height: "28px" }}
         >
           <img
-            src="/figma/green-solid-plus.svg"
+            src={publicAsset("figma/green-solid-plus.svg")}
             alt=""
             style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
             width={28}
@@ -352,14 +353,14 @@ export function FigmaHomeDecor() {
               className="figma-deco-float"
               style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
             >
-              <img src="/figma/blue-outline-plus.svg" alt="" style={fillImg} width={30} height={30} />
+              <img src={publicAsset("figma/blue-outline-plus.svg")} alt="" style={fillImg} width={30} height={30} />
             </div>
             <div
               ref={setFloatRef(2)}
               className="figma-deco-float"
               style={solidCircleFromBlue}
             >
-              <img src="/figma/solid-circle.svg" alt="" style={fillImg} width={14} height={14} />
+              <img src={publicAsset("figma/solid-circle.svg")} alt="" style={fillImg} width={14} height={14} />
             </div>
           </div>
         </div>
@@ -379,7 +380,7 @@ export function FigmaHomeDecor() {
               position: "relative",
             }}
           >
-            <img src="/figma/pink-outline-plus.svg" alt="" style={fillImg} width={22} height={22} />
+            <img src={publicAsset("figma/pink-outline-plus.svg")} alt="" style={fillImg} width={22} height={22} />
           </div>
         </div>
 
@@ -390,7 +391,7 @@ export function FigmaHomeDecor() {
           style={{ position: "absolute", top: "71%", left: "9%", width: 26, height: 26 }}
         >
           <img
-            src="/figma/blue-solid-plus.svg"
+            src={publicAsset("figma/blue-solid-plus.svg")}
             alt=""
             style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
             width={26}
@@ -401,7 +402,7 @@ export function FigmaHomeDecor() {
         {/* white-pill.svg — Figma 34×316, no CSS rotation (orientation is in the asset) */}
         <div style={abs(659, 1265, 34, 316)}>
           <img
-            src="/figma/white-pill.svg"
+            src={publicAsset("figma/white-pill.svg")}
             alt=""
             style={fillImg}
             width={34}
@@ -412,7 +413,7 @@ export function FigmaHomeDecor() {
         {/* black-pill.svg — Figma 34×157 */}
         <div style={abs(659, 1324, 34, 157)}>
           <img
-            src="/figma/black-pill.svg"
+            src={publicAsset("figma/black-pill.svg")}
             alt=""
             style={fillImg}
             width={34}
@@ -438,12 +439,12 @@ export function FigmaHomeDecor() {
               position: "relative",
             }}
           >
-            <img src="/figma/big-asterisk.svg" alt="" style={fillImg} width={102} height={125} />
+            <img src={publicAsset("figma/big-asterisk.svg")} alt="" style={fillImg} width={102} height={125} />
           </div>
         </div>
 
         <div ref={setFloatRef(4)} className="figma-deco-float" style={abs(226, 134, 26, 26)}>
-          <img src="/figma/outline-circle.svg" alt="" style={fillImg} width={26} height={26} />
+          <img src={publicAsset("figma/outline-circle.svg")} alt="" style={fillImg} width={26} height={26} />
         </div>
 
         {/* Scattered copies: independent random motion (see rAF) */}
@@ -461,7 +462,7 @@ export function FigmaHomeDecor() {
                 style={{ ...pos, width: s, height: s }}
               >
                 <img
-                  src="/figma/green-solid-plus.svg"
+                  src={publicAsset("figma/green-solid-plus.svg")}
                   alt=""
                   style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
                   width={s}
@@ -479,7 +480,7 @@ export function FigmaHomeDecor() {
                 style={{ ...pos, width: s, height: s, pointerEvents: "none" }}
               >
                 <img
-                  src="/figma/pink-solid-plus.svg"
+                  src={publicAsset("figma/pink-solid-plus.svg")}
                   alt=""
                   style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
                   width={s}
@@ -496,7 +497,7 @@ export function FigmaHomeDecor() {
                 className="figma-deco-float"
                 style={{ ...pos, width: s, height: s, pointerEvents: "none" }}
               >
-                <img src="/figma/blue-outline-plus.svg" alt="" style={fillImg} width={s} height={s} />
+                <img src={publicAsset("figma/blue-outline-plus.svg")} alt="" style={fillImg} width={s} height={s} />
               </div>
             );
           }
@@ -508,7 +509,7 @@ export function FigmaHomeDecor() {
                 className="figma-deco-float"
                 style={{ ...pos, width: s, height: s }}
               >
-                <img src="/figma/solid-circle.svg" alt="" style={fillImg} width={s} height={s} />
+                <img src={publicAsset("figma/solid-circle.svg")} alt="" style={fillImg} width={s} height={s} />
               </div>
             );
           }
@@ -531,7 +532,7 @@ export function FigmaHomeDecor() {
                     position: "relative",
                   }}
                 >
-                  <img src="/figma/pink-outline-plus.svg" alt="" style={fillImg} width={s} height={s} />
+                  <img src={publicAsset("figma/pink-outline-plus.svg")} alt="" style={fillImg} width={s} height={s} />
                 </div>
               </div>
             );
@@ -543,7 +544,7 @@ export function FigmaHomeDecor() {
               className="figma-deco-float"
               style={{ ...pos, width: s, height: s }}
             >
-              <img src="/figma/outline-circle.svg" alt="" style={fillImg} width={s} height={s} />
+              <img src={publicAsset("figma/outline-circle.svg")} alt="" style={fillImg} width={s} height={s} />
             </div>
           );
         })}
@@ -551,7 +552,7 @@ export function FigmaHomeDecor() {
         <div style={vectorOuterBox}>
           <div style={vectorGroupInner}>
             <div style={vectorRotBox}>
-              <img src="/figma/right-line.svg" alt="" style={vector1Img} width={222} height={324} />
+              <img src={publicAsset("figma/right-line.svg")} alt="" style={vector1Img} width={222} height={324} />
             </div>
           </div>
           <div style={union4Wrap}>
@@ -565,7 +566,7 @@ export function FigmaHomeDecor() {
                 position: "relative",
               }}
             >
-              <img src="/figma/small-asterisk.svg" alt="" style={fillImg} width={54} height={54} />
+              <img src={publicAsset("figma/small-asterisk.svg")} alt="" style={fillImg} width={54} height={54} />
             </div>
           </div>
         </div>

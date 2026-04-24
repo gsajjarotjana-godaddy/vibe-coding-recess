@@ -19,6 +19,7 @@ import type { MemberDoc, RoomDoc } from "./lib/types";
 import { R1_TEMPLATES } from "./lib/game";
 import { FigmaHomeDecor } from "./FigmaHomeDecor";
 import { getHostMemberId, sortMembersByJoinOrder } from "./lib/host";
+import { publicAsset } from "./lib/publicAsset";
 
 type Props = {
   onEnterGame: () => void;
@@ -43,13 +44,11 @@ const LOBBY_HUES = ["blue", "pink", "green"] as const;
 
 const HOST_ONLY_TIMER_MS = 2800;
 
-const lobbyBase = import.meta.env.BASE_URL;
-
 /** Icons in /public/figma — match circle hue (blue → pink → green) */
 function lobbyIconSrc(hue: (typeof LOBBY_HUES)[number]) {
-  if (hue === "green") return `${lobbyBase}figma/lightbulb.svg`;
-  if (hue === "blue") return `${lobbyBase}figma/sparkles.svg`;
-  return `${lobbyBase}figma/lightning-bolt.svg`; /* pink */
+  if (hue === "green") return publicAsset("figma/lightbulb.svg");
+  if (hue === "blue") return publicAsset("figma/sparkles.svg");
+  return publicAsset("figma/lightning-bolt.svg"); /* pink */
 }
 
 type MemberItem = { id: string; name: string };
