@@ -3,6 +3,9 @@ import type { MemberDoc } from "./types";
 /** R1: minimum words for a valid freeform prompt. */
 export const R1_MIN_WORDS = 10;
 
+/** R2 “vibe coding” build window (minutes). Single source of truth for countdown and Firestore. */
+export const R2_BUILD_DURATION_MINS = 10;
+
 export function countWords(s: string): number {
   return s.trim().split(/\s+/).filter(Boolean).length;
 }
@@ -69,15 +72,30 @@ export function isWordInTargetSet(rawWord: string, set: Set<string>): boolean {
   return set.has(n);
 }
 
-/** Points = count of unique target tokens that appear in guess (rough word match). */
+/**
+ * Count how often each non-stopword token appears (for overlap scoring).
+ */
+function countTokenOccurrences(s: string): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const w of tokenize(s)) {
+    m.set(w, (m.get(w) || 0) + 1);
+  }
+  return m;
+}
+
+/**
+ * Points = sum over each target word: min(uses in target, uses in guess).
+ * Repeating the same word in the real prompt and in the guess scores every time.
+ */
 export function scoreGuess(guess: string, target: string): number {
-  const g = new Set(tokenize(guess));
+  const g = countTokenOccurrences(guess);
   if (g.size === 0) return 0;
-  const t = new Set(tokenize(target));
+  const t = countTokenOccurrences(target);
   if (t.size === 0) return 0;
   let hit = 0;
-  for (const w of t) {
-    if (g.has(w)) hit++;
+  for (const [w, tN] of t) {
+    const gN = g.get(w) || 0;
+    hit += Math.min(tN, gN);
   }
   return hit;
 }

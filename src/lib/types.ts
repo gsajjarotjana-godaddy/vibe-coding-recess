@@ -62,6 +62,8 @@ export interface RoomDoc {
   r3PickedRevealed: boolean;
   /** In r3_reveal: true after host shows the real prompt. */
   r3AnswerRevealed: boolean;
+  /** R3 guess round: wall-clock deadline (epoch ms) for the 1:00 window. */
+  r3GuessEndsAt: number | null;
 }
 
 export interface MemberDoc {
@@ -86,6 +88,16 @@ export interface RoomState {
   members: Record<string, MemberDoc & { id: string }>;
 }
 
+/**
+ * Firestore may still have r2DurationMins: 12 from the old default; the build window is now 10.
+ * Map only that legacy value so custom values (if ever set) are preserved.
+ */
+function normalizeR2DurationMins(raw: unknown): number {
+  if (typeof raw !== "number" || !Number.isFinite(raw) || raw <= 0) return 10;
+  if (raw === 12) return 10;
+  return raw;
+}
+
 /** Normalize older Firestore rooms into the new shape (best-effort). */
 export function migrateRoomDoc(d: Record<string, unknown> | null): RoomDoc {
   if (!d) {
@@ -98,7 +110,7 @@ export function migrateRoomDoc(d: Record<string, unknown> | null): RoomDoc {
     sessionOpen: Boolean(d.sessionOpen),
     r1StartedAt: firestoreNumberOrTimeToMs(d.r1StartedAt),
     r1DurationSec: typeof d.r1DurationSec === "number" ? d.r1DurationSec : 120,
-    r2DurationMins: typeof d.r2DurationMins === "number" ? d.r2DurationMins : 12,
+    r2DurationMins: normalizeR2DurationMins(d.r2DurationMins),
     r2EndsAt: firestoreNumberOrTimeToMs(d.r2EndsAt),
     r2IntroAt: firestoreNumberOrTimeToMs(d.r2IntroAt),
     presentationOrder: Array.isArray(d.presentationOrder) ? d.presentationOrder : null,
@@ -112,6 +124,7 @@ export function migrateRoomDoc(d: Record<string, unknown> | null): RoomDoc {
     r3PresentedUids: Array.isArray(d.r3PresentedUids) ? (d.r3PresentedUids as string[]) : [],
     r3PickedRevealed: Boolean(d.r3PickedRevealed),
     r3AnswerRevealed: Boolean(d.r3AnswerRevealed),
+    r3GuessEndsAt: firestoreNumberOrTimeToMs(d.r3GuessEndsAt),
   };
   if (d.hostId != null) base.hostId = d.hostId as string;
   return base;
@@ -124,7 +137,7 @@ function createDefaultRoomForMigration(): RoomDoc {
     sessionOpen: false,
     r1StartedAt: null,
     r1DurationSec: 120,
-    r2DurationMins: 12,
+    r2DurationMins: 10,
     r2EndsAt: null,
     r2IntroAt: null,
     presentationOrder: null,
@@ -135,6 +148,7 @@ function createDefaultRoomForMigration(): RoomDoc {
     r3PresentedUids: [],
     r3PickedRevealed: false,
     r3AnswerRevealed: false,
+    r3GuessEndsAt: null,
   };
 }
 

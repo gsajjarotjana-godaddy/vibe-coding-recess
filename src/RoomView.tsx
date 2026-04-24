@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { getAuth } from "firebase/auth";
 import {
   collection,
@@ -19,6 +19,7 @@ import {
 } from "./lib/types";
 import {
   R1_MIN_WORDS,
+  R2_BUILD_DURATION_MINS,
   allGuessedForTarget,
   countWords,
   buildR2Mapping,
@@ -49,13 +50,23 @@ function r1WritingTimeBadge(room: RoomDoc) {
   return <InstructionTimeBadge type="live" endAtMs={start + dur * 1000} />;
 }
 
+const R3_GUESS_SEC = 60;
+
 function r2CodingHeaderTimeBadge(room: RoomDoc) {
   const end = firestoreNumberOrTimeToMs(room.r2EndsAt as unknown);
-  const windowSec = (room.r2DurationMins ?? 12) * 60;
+  const windowSec = R2_BUILD_DURATION_MINS * 60;
   if (end == null) {
     return <InstructionTimeBadge type="static" totalSeconds={windowSec} />;
   }
   return <InstructionTimeBadge type="live" endAtMs={end} />;
+}
+
+/** Live countdown; `endsAt` is for guessers on the typing form only. */
+function r3GuessTimeBadge(endsAt: number | null) {
+  if (endsAt == null) {
+    return <InstructionTimeBadge type="static" totalSeconds={R3_GUESS_SEC} />;
+  }
+  return <InstructionTimeBadge type="live" endAtMs={endsAt} />;
 }
 
 const INAPP_CTA_ERR_MS = 2500;
@@ -217,10 +228,41 @@ export function RoomView({ roomId, onLeave }: Props) {
   /** Legacy: r3_wait removed; jump to reveal. */
   useEffect(() => {
     if (!room || room.phase !== "r3_wait" || !isHost) return;
-    void updateDoc(doc(db, "rooms", roomId), { phase: "r3_reveal" as const, r3AnswerRevealed: false });
+    void updateDoc(doc(db, "rooms", roomId), {
+      phase: "r3_reveal" as const,
+      r3AnswerRevealed: false,
+      r3GuessEndsAt: null,
+    });
   }, [room, isHost, db, roomId]);
 
   const tUid = room?.r3CurrentPresenter;
+
+  const r3GuessInWaiting = useMemo(() => {
+    if (!room || room.phase !== "r3_guess" || !tUid || !me) return false;
+    if (uid === tUid) return Boolean(me.r3PresentRoundAck);
+    return Boolean((me.r3Guesses?.[tUid] || "").trim().length);
+  }, [room, tUid, me, uid]);
+
+  /** R3: 1:00 for guessers only, on the typing form (not the full-page wait, not presenter). */
+  const [r3LocalGuessEndsAt, setR3LocalGuessEndsAt] = useState<number | null>(null);
+  const r3GuessTimerPhaseRef = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    if (room?.phase !== "r3_guess" || !tUid) {
+      r3GuessTimerPhaseRef.current = null;
+      setR3LocalGuessEndsAt(null);
+      return;
+    }
+    const isGuesserTyping = Boolean(uid) && uid !== tUid && !r3GuessInWaiting;
+    if (!isGuesserTyping) {
+      setR3LocalGuessEndsAt(null);
+      return;
+    }
+    if (r3GuessTimerPhaseRef.current !== tUid) {
+      r3GuessTimerPhaseRef.current = tUid;
+      setR3LocalGuessEndsAt(Date.now() + R3_GUESS_SEC * 1000);
+    }
+  }, [room?.phase, tUid, r3GuessInWaiting, uid]);
+
   useEffect(() => {
     if (!me || !room || room.phase !== "r3_guess" || !tUid) {
       return;
@@ -246,12 +288,6 @@ export function RoomView({ roomId, onLeave }: Props) {
       })),
     [members]
   );
-
-  const r3GuessInWaiting = useMemo(() => {
-    if (!room || room.phase !== "r3_guess" || !tUid || !me) return false;
-    if (uid === tUid) return Boolean(me.r3PresentRoundAck);
-    return Boolean((me.r3Guesses?.[tUid] || "").trim().length);
-  }, [room, tUid, me, uid]);
 
   /** Background icon drift: on for waiting phases, r3 guess wait, and final standings; form steps stay static. */
   const decorDriftEnabled = useMemo(() => {
@@ -371,11 +407,11 @@ export function RoomView({ roomId, onLeave }: Props) {
   async function goR2IntroToCoding() {
     await withBusy(async () => {
       if (!room) return;
-      const mins = room.r2DurationMins ?? 12;
-      const r2EndsAt = Date.now() + mins * 60 * 1000;
+      const r2EndsAt = Date.now() + R2_BUILD_DURATION_MINS * 60 * 1000;
       await updateDoc(doc(db, "rooms", roomId), {
         phase: "r2_coding" as const,
         r2EndsAt,
+        r2DurationMins: R2_BUILD_DURATION_MINS,
       });
     });
   }
@@ -396,6 +432,7 @@ export function RoomView({ roomId, onLeave }: Props) {
         r3PickedRevealed: false,
         r3AnswerRevealed: false,
         r3GuessingUnlocked: false,
+        r3GuessEndsAt: null,
       });
       await batch.commit();
     });
@@ -463,6 +500,7 @@ export function RoomView({ roomId, onLeave }: Props) {
           resultsRevealed: true,
           podiumVisible: true,
           r3PresentedUids: nextPresented,
+          r3GuessEndsAt: null,
         });
         return;
       }
@@ -472,6 +510,7 @@ export function RoomView({ roomId, onLeave }: Props) {
         r3CurrentPresenter: null,
         r3PickedRevealed: false,
         r3AnswerRevealed: false,
+        r3GuessEndsAt: null,
       });
     });
   }
@@ -881,6 +920,7 @@ export function RoomView({ roomId, onLeave }: Props) {
                   titleStart="Guess the Prompt"
                   titleAccent=""
                   titlePlain
+                  headerRight={r3GuessTimeBadge(r3LocalGuessEndsAt)}
                   subtitle={
                     "Type in a prompt with at least 10 words that you think may have been the original prompt. " +
                     "You get a point for each word that matches."

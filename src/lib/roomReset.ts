@@ -5,6 +5,7 @@ import {
   getDocs,
   writeBatch,
 } from "firebase/firestore";
+import { R2_BUILD_DURATION_MINS } from "./game";
 import type { RoomDoc } from "./types";
 
 export function createInitialRoomDoc(createdAt: number): RoomDoc {
@@ -14,7 +15,7 @@ export function createInitialRoomDoc(createdAt: number): RoomDoc {
     sessionOpen: false,
     r1StartedAt: null,
     r1DurationSec: 120,
-    r2DurationMins: 12,
+    r2DurationMins: R2_BUILD_DURATION_MINS,
     r2EndsAt: null,
     r2IntroAt: null,
     presentationOrder: null,
@@ -25,6 +26,7 @@ export function createInitialRoomDoc(createdAt: number): RoomDoc {
     r3PresentedUids: [],
     r3PickedRevealed: false,
     r3AnswerRevealed: false,
+    r3GuessEndsAt: null,
   };
 }
 
