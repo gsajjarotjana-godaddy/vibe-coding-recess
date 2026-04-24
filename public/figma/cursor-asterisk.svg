@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
+  <!-- Filled white spokes (browsers handle filled SVG cursors more reliably than stroke) -->
+  <rect x="9" y="1.5" width="2" height="17" fill="#ffffff" rx="1" />
+  <rect x="1.5" y="9" width="17" height="2" fill="#ffffff" rx="1" />
+  <g fill="#ffffff" transform="translate(10,10)">
+    <rect x="-0.9" y="-6.5" width="1.8" height="13" rx="0.9" transform="rotate(45)" />
+    <rect x="-0.9" y="-6.5" width="1.8" height="13" rx="0.9" transform="rotate(-45)" />
+  </g>
+</svg>
