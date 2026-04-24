@@ -74,6 +74,10 @@ export interface MemberDoc {
   r1Prompt: string;
   r1Submitted: boolean;
   r2ForUid: string;
+  /** R2: if you missed the derangement, a random example prompt to build. */
+  r2FallbackPrompt?: string;
+  /** R3: joined after R2; can guess but is not picked to present. */
+  r3SkipSharing?: boolean;
   r3Guesses: Record<string, string>;
   r3Submitted: boolean;
   manualPointDelta: number;

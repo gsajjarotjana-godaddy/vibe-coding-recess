@@ -271,7 +271,30 @@ export function RoomView({ roomId, onLeave }: Props) {
     setR3Line((me.r3Guesses && me.r3Guesses[tUid]) || "");
   }, [me, room?.phase, tUid, me?.r3Guesses, room?.r3CurrentPresenter]);
 
+  /** R2: late joiner missed the derangement — store a random example build prompt. */
+  useEffect(() => {
+    if (!uid || !me || !room) return;
+    if (me.r2ForUid || me.r2FallbackPrompt) return;
+    const p = room.phase;
+    if (p !== "r2_intro" && p !== "r2_coding" && p !== "r2_waiting") return;
+    const pick = EXAMPLE_PROMPTS[Math.floor(Math.random() * EXAMPLE_PROMPTS.length)]!;
+    void updateDoc(doc(db, "rooms", roomId, "members", uid), { r2FallbackPrompt: pick });
+  }, [uid, me, room, db, roomId]);
+
+  /** R3: joined after R2 — can guess, never picked to present. */
+  useEffect(() => {
+    if (!uid || !me || !room) return;
+    if (!room.phase.startsWith("r3_")) return;
+    if (me.r3SkipSharing) return;
+    if (me.r2ForUid || me.r2FallbackPrompt) return;
+    void updateDoc(doc(db, "rooms", roomId, "members", uid), { r3SkipSharing: true });
+  }, [uid, me, room, db, roomId]);
+
   const uids = useMemo(() => Object.keys(members), [members]);
+  const r3PresentPoolUids = useMemo(
+    () => uids.filter((id) => !members[id]?.r3SkipSharing),
+    [uids, members]
+  );
   const allR1Submitted =
     uids.length >= 2 && uids.every((id) => members[id]?.r1Submitted);
   const allR2VibeDone =
@@ -448,7 +471,7 @@ export function RoomView({ roomId, onLeave }: Props) {
   async function hostRandomizePresenter() {
     await withBusy(async () => {
       if (!room) return;
-      const next = pickNextPresenter(uids, room.r3PresentedUids || []);
+      const next = pickNextPresenter(r3PresentPoolUids, room.r3PresentedUids || []);
       if (!next) {
         setErr("No one left to pick. Go to results.");
         return;
@@ -494,7 +517,7 @@ export function RoomView({ roomId, onLeave }: Props) {
       if (!room?.r3CurrentPresenter) return;
       const p = room.r3CurrentPresenter;
       const nextPresented = [...(room.r3PresentedUids || []), p];
-      const isLast = nextPresented.length >= uids.length;
+      const isLast = r3PresentPoolUids.length > 0 && nextPresented.length >= r3PresentPoolUids.length;
       if (isLast) {
         await updateDoc(doc(db, "rooms", roomId), {
           phase: "results" as const,
@@ -580,7 +603,8 @@ export function RoomView({ roomId, onLeave }: Props) {
     : "";
 
   const isLastR3Reveal =
-    (room.r3PresentedUids?.length ?? 0) + 1 >= uids.length && uids.length > 0;
+    r3PresentPoolUids.length > 0 &&
+    (room.r3PresentedUids?.length ?? 0) + 1 >= r3PresentPoolUids.length;
   const topCta: { label: string; onAction: () => void; show: boolean; disabled?: boolean } | null = (() => {
     const p = room.phase;
     if (p === "r1_intro") {
@@ -805,9 +829,11 @@ export function RoomView({ roomId, onLeave }: Props) {
               headerRight={r2CodingHeaderTimeBadge(room)}
               subtitle="Prompt to build:"
             />
-            {assignee && me.r2ForUid ? (
+            {((assignee && me.r2ForUid) || me.r2FallbackPrompt) ? (
               <>
-                <p className="figma-r2-build-prompt">{assignee.r1Prompt || "—"}</p>
+                <p className="figma-r2-build-prompt">
+                  {assignee && me.r2ForUid ? assignee.r1Prompt || "—" : me.r2FallbackPrompt || "—"}
+                </p>
                 <p className="figma-r2-build-hint">Time to vibe code in Cursor!</p>
                 <div className="row figma-r2-build-cta">
                   <button

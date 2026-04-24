@@ -104,7 +104,7 @@ export function scoreGuess(guess: string, target: string): number {
 
 /**
  * R3: guesses and the “real prompt” are about the prompt the presenter was **assigned** in R2
- * (that author’s `r1Prompt`), not the presenter’s own round-1 writing.
+ * (that author’s `r1Prompt`), a late-join `r2FallbackPrompt`, or else the presenter’s own R1 text.
  */
 export function r3AnswerPromptForPresenter(
   presenterId: string,
@@ -115,6 +115,9 @@ export function r3AnswerPromptForPresenter(
   const fromUid = p.r2ForUid;
   if (fromUid && members[fromUid]) {
     return members[fromUid].r1Prompt || "";
+  }
+  if (p.r2FallbackPrompt) {
+    return p.r2FallbackPrompt;
   }
   return p.r1Prompt || "";
 }

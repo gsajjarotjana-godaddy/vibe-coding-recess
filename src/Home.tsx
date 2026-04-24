@@ -40,6 +40,7 @@ const defaultMember = (): Omit<MemberDoc, "name" | "joinedAt"> => ({
   r3Submitted: false,
   manualPointDelta: 0,
   r2VibeDone: false,
+  r3SkipSharing: false,
 });
 
 const HOST_ONLY_TIMER_MS = 2800;
