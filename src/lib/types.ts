@@ -1,7 +1,10 @@
+import type { Timestamp } from "firebase/firestore";
+
 export type Phase = "lobby" | "r1" | "r2" | "r3_sharing" | "r3_guessing" | "results";
 
 export interface RoomDoc {
-  hostId: string;
+  /** Legacy; host is derived from members by joinedAt. */
+  hostId?: string;
   phase: Phase;
   createdAt: number;
   /** wall-clock ms when R1 started (for timer) */
@@ -21,6 +24,8 @@ export interface RoomDoc {
 }
 
 export interface MemberDoc {
+  /** Server time on first write — used to pick host (earliest). */
+  joinedAt?: Timestamp | { seconds: number; nanoseconds?: number };
   name: string;
   r1TemplateId: number;
   r1Prompt: string;

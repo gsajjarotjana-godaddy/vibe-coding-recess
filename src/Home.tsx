@@ -5,30 +5,44 @@ import {
   getDoc,
   getDocs,
   query,
+  serverTimestamp,
   setDoc,
+  updateDoc,
   where,
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { getFirebase } from "./firebase";
+import { getPublicRoomId } from "./config/room";
 import type { MemberDoc, RoomDoc } from "./lib/types";
-import { makeRoomCode, R1_TEMPLATES } from "./lib/game";
+import { R1_TEMPLATES } from "./lib/game";
+import { FigmaHomeDecor } from "./FigmaHomeDecor";
 
 type Props = {
-  onEnterRoom: (roomId: string) => void;
+  onJoined: () => void;
 };
 
 function randomTemplateId(): number {
   return Math.floor(Math.random() * R1_TEMPLATES.length);
 }
 
-export function Home({ onEnterRoom }: Props) {
+const defaultMember = (): Omit<MemberDoc, "name" | "joinedAt"> => ({
+  r1TemplateId: randomTemplateId(),
+  r1Prompt: "",
+  r1Submitted: false,
+  r2ForUid: "",
+  r3Guesses: {},
+  r3Submitted: false,
+  manualPointDelta: 0,
+});
+
+export function Home({ onJoined }: Props) {
   const { db } = getFirebase();
+  const roomId = getPublicRoomId();
   const [name, setName] = useState("");
-  const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  async function createRoom() {
+  async function join() {
     setErr(null);
     const n = name.trim();
     if (n.length < 1) {
@@ -45,109 +59,45 @@ export function Home({ onEnterRoom }: Props) {
       const uid = auth.currentUser?.uid;
       if (!uid) throw new Error("Not signed in");
 
-      let roomId = "";
-      for (let k = 0; k < 20; k++) {
-        const c = makeRoomCode();
-        const ref = doc(db, "rooms", c);
-        const snap = await getDoc(ref);
-        if (!snap.exists()) {
-          roomId = c;
-          break;
-        }
+      const roomRef = doc(db, "rooms", roomId);
+      const roomSnap = await getDoc(roomRef);
+      if (!roomSnap.exists()) {
+        const room: RoomDoc = {
+          phase: "lobby",
+          createdAt: Date.now(),
+          r1StartedAt: null,
+          r1DurationSec: 120,
+          r2DurationMins: 12,
+          r2EndsAt: null,
+          presentationOrder: null,
+          r3GuessingUnlocked: false,
+          resultsRevealed: false,
+          podiumVisible: false,
+        };
+        await setDoc(roomRef, room);
       }
-      if (!roomId) throw new Error("Could not allocate a room code. Try again.");
 
-      const now = Date.now();
-      const room: RoomDoc = {
-        hostId: uid,
-        phase: "lobby",
-        createdAt: now,
-        r1StartedAt: null,
-        r1DurationSec: 120,
-        r2DurationMins: 12,
-        r2EndsAt: null,
-        presentationOrder: null,
-        r3GuessingUnlocked: false,
-        resultsRevealed: false,
-        podiumVisible: false,
-      };
-      const member: MemberDoc = {
-        name: n,
-        r1TemplateId: randomTemplateId(),
-        r1Prompt: "",
-        r1Submitted: false,
-        r2ForUid: "",
-        r3Guesses: {},
-        r3Submitted: false,
-        manualPointDelta: 0,
-      };
-
-      await setDoc(doc(db, "rooms", roomId), room);
-      await setDoc(doc(db, "rooms", roomId, "members", uid), member);
-      onEnterRoom(roomId);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Failed to create room");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function joinRoom() {
-    setErr(null);
-    const n = name.trim();
-    const c = code.trim().toUpperCase();
-    if (n.length < 1) {
-      setErr("Add your name.");
-      return;
-    }
-    if (c.length < 4) {
-      setErr("Enter a room code.");
-      return;
-    }
-    setBusy(true);
-    try {
-      const auth = getAuth();
-      const uid = auth.currentUser?.uid;
-      if (!uid) throw new Error("Not signed in");
-
-      const roomRef = doc(db, "rooms", c);
-      const rs = await getDoc(roomRef);
-      if (!rs.exists()) {
-        setErr("Room not found. Check the code.");
-        return;
-      }
-      const room = rs.data() as RoomDoc;
-      if (room.resultsRevealed) {
-        setErr("This session has already ended.");
+      const nameDup = query(collection(db, "rooms", roomId, "members"), where("name", "==", n));
+      const nameSnap = await getDocs(nameDup);
+      const taken = nameSnap.docs.some((d) => d.id !== uid);
+      if (taken) {
+        setErr("That name is already taken. Pick another.");
         return;
       }
 
-      const mRef = doc(db, "rooms", c, "members", uid);
+      const mRef = doc(db, "rooms", roomId, "members", uid);
       const existing = await getDoc(mRef);
       if (existing.exists()) {
-        onEnterRoom(c);
-        return;
+        await updateDoc(mRef, { name: n });
+      } else {
+        const member: MemberDoc = {
+          ...defaultMember(),
+          name: n,
+          joinedAt: serverTimestamp() as MemberDoc["joinedAt"],
+        };
+        await setDoc(mRef, member);
       }
-
-      const mQ = query(collection(db, "rooms", c, "members"), where("name", "==", n));
-      const mSnap = await getDocs(mQ);
-      if (!mSnap.empty) {
-        setErr("That name is already taken in this room. Pick another.");
-        return;
-      }
-
-      const member: MemberDoc = {
-        name: n,
-        r1TemplateId: randomTemplateId(),
-        r1Prompt: "",
-        r1Submitted: false,
-        r2ForUid: "",
-        r3Guesses: {},
-        r3Submitted: false,
-        manualPointDelta: 0,
-      };
-      await setDoc(mRef, member);
-      onEnterRoom(c);
+      onJoined();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Failed to join");
     } finally {
@@ -156,59 +106,56 @@ export function Home({ onEnterRoom }: Props) {
   }
 
   return (
-    <div className="shell">
-      <div className="card">
-        <h1>Vibe Coding Recess</h1>
-        <p className="muted" style={{ marginTop: 0 }}>
-          Create a room, share the code, run three rounds, then compare guesses. Music and screen sharing stay in
-          Teams — this is for prompts, timing hints, and scoring.
-        </p>
+    <div className="figma-landing">
+      <FigmaHomeDecor />
+      <header className="figma-topbar figma-landing__chrome">
+        <div className="figma-brand">April Vibe Coding Recess</div>
+        <nav className="figma-nav-menus" aria-hidden="true">
+          <span className="figma-menu figma-menu--cyan">Menu</span>
+          <span className="figma-menu figma-menu--pink">Menu</span>
+          <span className="figma-menu figma-menu--lime">Menu</span>
+        </nav>
+        <div className="figma-topbar-cta">
+          <button type="button" className="figma-btn-start" disabled={busy} onClick={join}>
+            Let’s start
+            <span className="figma-btn-arrow" aria-hidden="true">
+              →
+            </span>
+          </button>
+        </div>
+      </header>
 
-        <div style={{ marginTop: "1rem" }}>
-          <span className="label">Display name</span>
+      <main className="figma-hero figma-landing__chrome">
+        <h1 className="figma-title">
+          <span className="figma-title-strong">Guess the</span>{" "}
+          <span className="figma-title-accent">
+            <span className="figma-title-pr">Pr</span>ompt
+          </span>
+        </h1>
+        <p className="figma-subtitle">Enter your name to join!</p>
+
+        <div className="figma-join-field">
+          <label className="sr" htmlFor="player-name">
+            Your name
+          </label>
           <input
+            id="player-name"
+            className="figma-input"
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && join()}
             placeholder="Your name"
             maxLength={32}
-            autoComplete="off"
+            autoComplete="name"
+            autoFocus
           />
         </div>
 
-        {err && (
-          <p className="muted" style={{ color: "var(--err)", marginTop: "0.6rem" }}>
-            {err}
-          </p>
-        )}
+        {err && <p className="figma-error">{err}</p>}
+      </main>
 
-        <div className="row" style={{ marginTop: "1rem" }}>
-          <button className="primary" type="button" disabled={busy} onClick={createRoom}>
-            Create room
-          </button>
-        </div>
-      </div>
-
-      <div className="card" style={{ marginTop: "1rem" }}>
-        <h2 style={{ marginTop: 0 }}>Join a room</h2>
-        <div className="row">
-          <div style={{ flex: "1 1 200px" }}>
-            <span className="label">Room code</span>
-            <input
-              type="text"
-              value={code}
-              onChange={(e) => setCode(e.target.value.toUpperCase())}
-              placeholder="e.g. 7K3F9A"
-              maxLength={8}
-            />
-          </div>
-        </div>
-        <div className="row" style={{ marginTop: "0.5rem" }}>
-          <button className="primary" type="button" disabled={busy} onClick={joinRoom}>
-            Join
-          </button>
-        </div>
-      </div>
+      <footer className="figma-footer figma-landing__chrome">Designed by Grace Sajjarotjana</footer>
     </div>
   );
 }

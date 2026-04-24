@@ -1,19 +1,30 @@
+/* Figma (node 891:7777) + game screens */
 :root {
-  --bg: #0c0f14;
-  --panel: #151a22;
-  --line: rgba(255, 255, 255, 0.08);
-  --text: #e9edf5;
-  --muted: #8b95a8;
-  --accent: #6ee7c5;
+  --figma-cyan: #10cbff;
+  --figma-cyan-bright: #83e4ff;
+  --figma-pink: #ff9ec9;
+  --figma-lime: #cae893;
+  --figma-card: #1b1b1b;
+  --figma-border: #33515a;
+  --figma-text: #ffffff;
+  --figma-text-muted: rgba(255, 255, 255, 0.7);
+  --figma-text-dim: rgba(255, 255, 255, 0.5);
+  --figma-radius-card: 20px;
+  --figma-radius-pill: 35px;
+  --figma-radius-avatar: 29px;
+  --bg: #0c1111;
+  --line: var(--figma-border);
+  --text: #f0f4f8;
+  --muted: #9aa5b1;
+  --accent: var(--figma-cyan-bright);
   --warn: #f6c16e;
   --err: #f0a0a0;
   --podium-1: #e8c45c;
   --podium-2: #9fb4c4;
   --podium-3: #b8926a;
-  font-family: "DM Sans", system-ui, sans-serif;
+  font-family: "Manrope", system-ui, sans-serif;
   line-height: 1.45;
   color: var(--text);
-  background: var(--bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -26,8 +37,11 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: radial-gradient(1000px 500px at 0% 0%, #1a2238 0%, transparent 50%),
-    radial-gradient(800px 500px at 100% 20%, #231a2e 0%, transparent 45%), var(--bg);
+  color: var(--text);
+  background: radial-gradient(ellipse 100% 80% at 15% 5%, rgba(131, 228, 255, 0.22) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 50% at 90% 10%, rgba(86, 147, 164, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 40% at 50% 100%, rgba(19, 25, 27, 0.9) 0%, transparent 45%),
+    linear-gradient(180deg, #0e1418 0%, #0a0e10 40%, #060808 100%);
 }
 
 #root {
@@ -35,7 +49,7 @@ body {
 }
 
 a {
-  color: var(--accent);
+  color: var(--figma-cyan-bright);
 }
 
 h1,
@@ -60,18 +74,423 @@ p {
   border: 0;
 }
 
-.shell {
-  max-width: 880px;
-  margin: 0 auto;
-  padding: 1.25rem 1rem 2.5rem;
+/* —— Landing (Figma Desktop - 2) —— */
+.figma-landing {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow-x: hidden;
 }
 
-.card {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 1.25rem 1.4rem;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+/* Figma 891:7777 — decor uses 100vw/100dvh in TS so edges track the real viewport (no letterboxed scale) */
+.figma-landing__chrome {
+  position: relative;
+  z-index: 1;
+}
+
+.figma-deco-root {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 0;
+  min-height: 100dvh;
+  overflow: hidden;
+}
+
+.figma-deco-artboard {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  min-height: 100dvh;
+  overflow: visible;
+}
+
+.figma-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1.25rem 3.75rem 0.5rem; /* 20px / 60px (Figma 891:7995) */
+  max-width: 1440px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.figma-topbar--in-app {
+  max-width: 100%;
+  background: rgba(6, 8, 8, 0.35);
+  border-bottom: 1px solid rgba(51, 81, 90, 0.4);
+  padding: 0.9rem 1.25rem;
+  margin: 0;
+}
+
+.figma-brand {
+  font-family: "Menlo", "SFMono-Regular", ui-monospace, monospace;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--figma-text);
+}
+
+.figma-nav-menus {
+  display: flex;
+  gap: clamp(1.5rem, 5vw, 3.5rem);
+  font-family: "Menlo", "SFMono-Regular", ui-monospace, monospace;
+  font-size: 0.8rem;
+}
+
+.figma-menu--cyan {
+  color: var(--figma-cyan);
+}
+.figma-menu--pink {
+  color: var(--figma-pink);
+}
+.figma-menu--lime {
+  color: var(--figma-lime);
+}
+
+.figma-topbar-cta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.figma-btn-start {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 48px;
+  min-width: 150px;
+  padding: 0 1.1rem;
+  border-radius: var(--figma-radius-pill);
+  background: #1b1b1b;
+  border: 1px solid var(--figma-border);
+  color: #fff;
+  font-family: "Menlo", "SFMono-Regular", ui-monospace, monospace;
+  font-size: 0.85rem;
+  text-transform: capitalize;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.figma-btn-start:hover:not(:disabled) {
+  border-color: var(--figma-cyan-bright);
+  background: #202828;
+}
+
+.figma-btn-start:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.figma-btn-arrow {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.figma-hero {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1.5rem 3.75rem 3rem;
+  max-width: 1440px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.figma-title {
+  font-size: clamp(2.2rem, 6vw, 3.5rem);
+  font-weight: 400;
+  line-height: 1.1;
+  margin: 0 0 0.5rem;
+}
+
+.figma-title-strong {
+  font-size: 80px;
+  font-weight: 400;
+  color: #fff;
+}
+
+.figma-title-accent {
+  font-size: 80px;
+  font-family: "Menlo", "SFMono-Regular", ui-monospace, monospace;
+  color: var(--figma-cyan-bright);
+  font-weight: 400;
+}
+
+/* Tighten Menlo kerning between P and r in “Prompt” */
+.figma-title-pr {
+  letter-spacing: -0.12em;
+}
+
+.figma-subtitle {
+  font-size: 32px;
+  font-weight: 500;
+  color: var(--figma-text-muted);
+  margin: 0 0 1.5rem;
+  line-height: 1.4;
+  max-width: 36rem;
+}
+
+.figma-join-field {
+  width: 100%;
+  max-width: 22rem;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.figma-input {
+  width: 100%;
+  padding: 0.9rem 1.1rem;
+  border-radius: 14px;
+  border: 1px solid var(--figma-border);
+  background: rgba(14, 18, 20, 0.85);
+  color: #fff;
+  font-size: 1rem;
+  font-family: inherit;
+}
+
+.figma-input::placeholder {
+  color: var(--figma-text-dim);
+}
+
+.figma-input:focus {
+  outline: 2px solid rgba(16, 203, 255, 0.35);
+  border-color: var(--figma-cyan);
+}
+
+.figma-hint {
+  font-size: 0.9rem;
+  color: var(--figma-text-muted);
+  max-width: 24rem;
+  line-height: 1.4;
+  margin: 0.5rem 0 0;
+}
+
+.figma-error {
+  color: var(--err);
+  font-size: 0.9rem;
+  margin: 0.5rem 0 0;
+  max-width: 24rem;
+}
+
+.figma-footer {
+  text-align: center;
+  font-family: "Menlo", "SFMono-Regular", ui-monospace, monospace;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.12);
+  padding: 1.5rem 3.75rem 2rem;
+  margin-top: auto;
+  max-width: 1440px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* In-app */
+.figma-app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.figma-content {
+  flex: 1;
+  max-width: 880px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 1rem 1.1rem 2.5rem;
+}
+
+.figma-phase-pill {
+  font-family: "Menlo", "SFMono-Regular", ui-monospace, monospace;
+  font-size: 0.72rem;
+  color: var(--figma-cyan-bright);
+  border: 1px solid rgba(16, 203, 255, 0.35);
+  border-radius: 8px;
+  padding: 0.35rem 0.6rem;
+  text-align: center;
+  max-width: min(90vw, 20rem);
+}
+
+.figma-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.figma-ghost-link {
+  background: none;
+  border: none;
+  color: var(--figma-text-muted);
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  padding: 0.4rem 0.5rem;
+}
+
+.figma-ghost-link:hover {
+  color: #fff;
+}
+
+.figma-card {
+  background: var(--figma-card);
+  border: 1px solid var(--figma-border);
+  border-radius: var(--figma-radius-card);
+  padding: 1.2rem 1.35rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+}
+
+.figma-card--compact h1 {
+  font-size: 1.4rem;
+}
+
+.figma-card--players {
+  margin-top: 1rem;
+}
+
+.figma-card-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.shell-figma,
+.shell-figma-inner {
+  width: 100%;
+}
+
+.figma-muted,
+.app-loading,
+.app-loading p {
+  color: var(--figma-text-muted);
+  font-size: 0.95rem;
+}
+
+.app-loading {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  font-family: inherit;
+}
+
+.figma-btn {
+  font-family: inherit;
+  font-weight: 600;
+  border-radius: 12px;
+  padding: 0.65rem 1.1rem;
+  cursor: pointer;
+  border: 1px solid var(--figma-border);
+  background: #252a2e;
+  color: #fff;
+}
+
+.figma-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.figma-btn-primary {
+  background: linear-gradient(135deg, #3d9cb8, #2a6f82);
+  border: 1px solid var(--figma-cyan);
+  color: #fff;
+}
+
+.figma-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.figma-player-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1.75rem 1.5rem;
+  margin: 0.5rem 0 0.5rem;
+}
+
+.figma-player-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 5.5rem;
+  text-align: center;
+}
+
+.figma-avatar {
+  width: 3.4rem;
+  height: 3.4rem;
+  border-radius: var(--figma-radius-avatar);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: #0a0c0c;
+  margin-bottom: 0.45rem;
+}
+
+.figma-player-tile--cyan .figma-avatar {
+  background: var(--figma-cyan-bright);
+  color: #0a1a1c;
+}
+.figma-player-tile--pink .figma-avatar {
+  background: var(--figma-pink);
+  color: #2a1018;
+}
+.figma-player-tile--lime .figma-avatar {
+  background: var(--figma-lime);
+  color: #1a2210;
+}
+
+.figma-player-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.figma-player-tile--cyan .figma-player-name {
+  color: var(--figma-cyan);
+}
+.figma-player-tile--pink .figma-player-name {
+  color: var(--figma-pink);
+}
+.figma-player-tile--lime .figma-player-name {
+  color: var(--figma-lime);
+}
+
+.figma-pill,
+.figma-pill--host {
+  display: inline-block;
+  margin-left: 0.25rem;
+  padding: 0.05rem 0.35rem;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  border-radius: 4px;
+  background: rgba(16, 203, 255, 0.15);
+  color: var(--figma-cyan-bright);
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.figma-pill--small {
+  font-size: 0.6rem;
+  margin-left: 0.2rem;
 }
 
 .row {
@@ -104,16 +523,17 @@ select {
   max-width: 100%;
   padding: 0.6rem 0.75rem;
   border-radius: 10px;
-  border: 1px solid var(--line);
-  background: #0a0c10;
+  border: 1px solid var(--figma-border);
+  background: #0d1114;
+  color: #e9f0f4;
 }
 
 input[type="text"]:focus,
 input[type="number"]:focus,
 textarea:focus,
 select:focus {
-  outline: 2px solid rgba(110, 231, 197, 0.35);
-  border-color: rgba(110, 231, 197, 0.4);
+  outline: 2px solid rgba(16, 203, 255, 0.3);
+  border-color: var(--figma-cyan);
 }
 
 textarea {
@@ -121,61 +541,23 @@ textarea {
   resize: vertical;
 }
 
-button {
-  cursor: pointer;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: #1e2430;
-  color: var(--text);
-  padding: 0.6rem 1rem;
-  font-weight: 600;
-}
-
-button.primary {
-  background: linear-gradient(135deg, #6ee7c5, #4fc4e0);
-  color: #081016;
-  border: none;
-}
-
-button.primary:disabled,
-button:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-button.ghost {
-  background: transparent;
-  border: 1px solid var(--line);
-}
-
 .muted {
   color: var(--muted);
   font-size: 0.9rem;
 }
 
-.badge {
-  display: inline-block;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--bg);
-  background: var(--accent);
-  padding: 0.2rem 0.5rem;
-  border-radius: 6px;
-  font-weight: 700;
-}
-
 .timer {
-  font-size: 1.25rem;
+  font-size: 1.2rem;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   color: var(--warn);
 }
 
 .host {
-  color: var(--warn);
-  font-size: 0.85rem;
+  color: var(--figma-cyan);
+  font-size: 0.9rem;
   font-weight: 600;
+  margin: 0.25rem 0 0.5rem;
 }
 
 .podium {
@@ -193,7 +575,7 @@ button.ghost {
   padding: 1rem 0.9rem 1.2rem;
   border-radius: 12px;
   background: #11161f;
-  border: 1px solid var(--line);
+  border: 1px solid var(--figma-border);
 }
 
 .podium .slot.rank1 {
@@ -223,7 +605,7 @@ button.ghost {
   font-weight: 700;
 }
 .podium .pts {
-  color: var(--accent);
+  color: var(--figma-cyan-bright);
   margin-top: 0.4rem;
   font-weight: 600;
 }
@@ -236,7 +618,7 @@ table.standings {
 table.standings th,
 table.standings td {
   padding: 0.5rem 0.6rem;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid rgba(51, 81, 90, 0.6);
   text-align: left;
 }
 table.standings th {
@@ -251,8 +633,8 @@ table.standings tr:hover td {
 }
 
 .hint {
-  background: rgba(255, 255, 255, 0.04);
-  border-left: 3px solid var(--accent);
+  background: rgba(16, 203, 255, 0.06);
+  border-left: 3px solid var(--figma-cyan);
   padding: 0.65rem 0.8rem;
   font-size: 0.9rem;
   color: var(--muted);
@@ -273,7 +655,7 @@ ul.members {
 }
 ul.members li {
   padding: 0.3rem 0;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid rgba(51, 81, 90, 0.5);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -283,9 +665,9 @@ ul.members li {
 .guess-box {
   margin: 0.6rem 0 0;
   padding: 0.6rem 0.75rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--figma-border);
   border-radius: 10px;
-  background: #0a0c10;
+  background: #0d1014;
 }
 
 .guess-box label {
@@ -299,8 +681,8 @@ ul.members li {
 }
 
 .reveal {
-  background: #0b1018;
-  border: 1px solid var(--line);
+  background: #0d1014;
+  border: 1px solid var(--figma-border);
   border-radius: 10px;
   padding: 0.65rem 0.8rem;
   font-size: 0.9rem;
@@ -313,17 +695,16 @@ ul.members li {
   display: inline-block;
   padding: 0.1rem 0.45rem;
   border-radius: 999px;
-  background: rgba(110, 231, 197, 0.1);
-  color: var(--accent);
+  background: rgba(16, 203, 255, 0.1);
+  color: var(--figma-cyan-bright);
   font-size: 0.8rem;
   font-weight: 600;
 }
 
-/* Words that count as a match with the true prompt (scoring word set) */
 span.word-hit {
   color: #3ddc84;
   font-weight: 700;
-  text-shadow: 0 0 20px rgba(61, 220, 132, 0.25);
+  text-shadow: 0 0 20px rgba(61, 220, 132, 0.2);
 }
 
 .mypoints-bar {
@@ -335,25 +716,25 @@ span.word-hit {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 0.5rem;
-  padding: 0.5rem 0.85rem;
-  margin: 0 -0.2rem 0.75rem;
+  padding: 0.55rem 0.9rem;
+  margin: 0 0 0.85rem;
   border-radius: 12px;
-  background: rgba(12, 15, 20, 0.92);
-  border: 1px solid var(--line);
+  background: rgba(20, 26, 30, 0.92);
+  border: 1px solid var(--figma-border);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
 
 .mypoints-bar .label {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--muted);
 }
 
 .mypoints-bar .value {
   font-size: 1.15rem;
   font-weight: 800;
-  color: var(--accent);
+  color: var(--figma-cyan-bright);
   font-variant-numeric: tabular-nums;
 }
 

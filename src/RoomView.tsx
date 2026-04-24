@@ -18,6 +18,7 @@ import {
   totalScoreForPlayer,
   shuffleInPlace,
 } from "./lib/game";
+import { getHostMemberId } from "./lib/host";
 import { HighlightText } from "./components/HighlightText";
 
 type Props = {
@@ -38,6 +39,15 @@ function formatMs(ms: number): string {
   if (m > 0) return `${m}m ${String(r).padStart(2, "0")}s`;
   return `${r}s`;
 }
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (!parts.length) return "?";
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
+}
+
+const PLAYER_HUES = ["cyan", "pink", "lime"] as const;
 
 function phaseLabel(phase: Phase): string {
   const map: Record<Phase, string> = {
@@ -60,11 +70,11 @@ export function RoomView({ roomId, onLeave }: Props) {
   const [busy, setBusy] = useState(false);
   const [r1Text, setR1Text] = useState("");
   const [r3Local, setR3Local] = useState<Record<string, string>>({});
-  const [copied, setCopied] = useState(false);
 
   const uid = getAuth().currentUser?.uid || "";
   const me = uid ? members[uid] : undefined;
-  const isHost = room && uid === room.hostId;
+  const hostMemberId = useMemo(() => getHostMemberId(members), [members]);
+  const isHost = Boolean(hostMemberId && uid && hostMemberId === uid);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -154,12 +164,6 @@ export function RoomView({ roomId, onLeave }: Props) {
     if (room?.presentationOrder?.length) return room.presentationOrder.filter((id) => members[id]);
     return [...uids].sort((a, b) => (members[a]?.name || "").localeCompare(members[b]?.name || ""));
   }, [room?.presentationOrder, uids, members]);
-
-  const copyCode = useCallback(() => {
-    void navigator.clipboard.writeText(roomId);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [roomId]);
 
   const withBusy = useCallback(
     async (fn: () => Promise<void>) => {
@@ -312,20 +316,19 @@ export function RoomView({ roomId, onLeave }: Props) {
   const assignee = me && me.r2ForUid ? members[me.r2ForUid] : null;
 
   return (
-    <div className="shell">
-      <div className="row" style={{ justifyContent: "space-between", marginBottom: "0.6rem" }}>
-        <p style={{ margin: 0 }} className="badge">
-          {phaseLabel(room.phase)} · {roomId}
-        </p>
-        <div className="row">
-          <button type="button" className="ghost" onClick={copyCode}>
-            {copied ? "Copied" : "Copy code"}
-          </button>
-          <button type="button" className="ghost" onClick={onLeave}>
+    <div className="figma-app">
+      <header className="figma-topbar figma-topbar--in-app">
+        <div className="figma-brand">April Vibe Coding Recess</div>
+        <div className="figma-phase-pill" title="Current round">
+          {phaseLabel(room.phase)}
+        </div>
+        <div className="figma-topbar-actions">
+          <button type="button" className="figma-ghost-link" onClick={onLeave}>
             Leave
           </button>
         </div>
-      </div>
+      </header>
+    <div className="figma-content shell-figma-inner">
       {me && (
         <div className="mypoints-bar" role="status" aria-live="polite">
           <div>
@@ -342,22 +345,29 @@ export function RoomView({ roomId, onLeave }: Props) {
       {err && <p className="muted" style={{ color: "var(--err)" }}>{err}</p>}
 
       {room.phase === "lobby" && (
-        <div className="card">
-          <h2>Who’s in</h2>
-          <ul className="members">
-            {memberList.map((m) => (
-              <li key={m.id}>
-                <span>
-                  {m.name}
-                  {m.id === room.hostId && <span className="pill"> host</span>}
-                </span>
-                <span className="muted" />
-              </li>
-            ))}
-          </ul>
+        <div className="figma-card">
+          <h2 className="figma-card-title">Who’s in</h2>
+          <div className="figma-player-grid" aria-label="Players in the room">
+            {memberList.map((m, i) => {
+              const hue = PLAYER_HUES[i % PLAYER_HUES.length]!;
+              return (
+                <div key={m.id} className={"figma-player-tile figma-player-tile--" + hue}>
+                  <div className="figma-avatar" aria-hidden="true">
+                    {initials(m.name)}
+                  </div>
+                  <div className="figma-player-name">
+                    {m.name}
+                    {hostMemberId && m.id === hostMemberId && (
+                      <span className="figma-pill figma-pill--host"> host</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
           {isHost && (
             <div className="row" style={{ marginTop: "0.8rem" }}>
-              <button className="primary" type="button" disabled={busy} onClick={hostStartR1}>
+              <button className="figma-btn figma-btn-primary" type="button" disabled={busy} onClick={hostStartR1}>
                 Start round 1 ({room.r1DurationSec / 60} min)
               </button>
             </div>
@@ -370,7 +380,7 @@ export function RoomView({ roomId, onLeave }: Props) {
       )}
 
       {room.phase === "r1" && me && (
-        <div className="card">
+        <div className="figma-card">
           <div className="row" style={{ justifyContent: "space-between" }}>
             <h2 style={{ margin: 0 }}>Round 1: your structured prompt</h2>
             {r1EndAt && <div className="timer">{formatMs(r1Left)}</div>}
@@ -396,7 +406,7 @@ export function RoomView({ roomId, onLeave }: Props) {
           )}
           {!me.r1Submitted && (
             <div className="row" style={{ marginTop: "0.5rem" }}>
-              <button className="primary" type="button" disabled={busy} onClick={submitR1}>
+              <button className="figma-btn figma-btn-primary" type="button" disabled={busy} onClick={submitR1}>
                 Save prompt
               </button>
             </div>
@@ -413,7 +423,7 @@ export function RoomView({ roomId, onLeave }: Props) {
           </ul>
           {isHost && (
             <div className="row" style={{ marginTop: "0.8rem" }}>
-              <button className="primary" type="button" disabled={busy} onClick={hostGoR2}>
+              <button className="figma-btn figma-btn-primary" type="button" disabled={busy} onClick={hostGoR2}>
                 Start round 2 (assign prompts, no one gets their own)
               </button>
             </div>
@@ -422,7 +432,7 @@ export function RoomView({ roomId, onLeave }: Props) {
       )}
 
       {room.phase === "r2" && me && (
-        <div className="card">
+        <div className="figma-card">
           <div className="row" style={{ justifyContent: "space-between" }}>
             <h2 style={{ margin: 0 }}>Round 2: build this prompt</h2>
             {room.r2EndsAt != null && <div className="timer">{formatMs(r2Left)}</div>}
@@ -463,7 +473,7 @@ export function RoomView({ roomId, onLeave }: Props) {
                 <option value="15">15 min</option>
                 <option value="20">20 min</option>
               </select>
-              <button className="primary" type="button" disabled={busy} onClick={hostGoR3Sharing}>
+              <button className="figma-btn figma-btn-primary" type="button" disabled={busy} onClick={hostGoR3Sharing}>
                 After builds: go to round 3 (presentation order)
               </button>
             </div>
@@ -472,7 +482,7 @@ export function RoomView({ roomId, onLeave }: Props) {
       )}
 
       {room.phase === "r3_sharing" && (
-        <div className="card">
+        <div className="figma-card">
           <h2>Round 3 — share screens in this order (Teams)</h2>
           <p className="hint">
             When everyone has presented and you are ready to collect guesses, the host unlocks the guessing form on
@@ -508,7 +518,7 @@ export function RoomView({ roomId, onLeave }: Props) {
           )}
           {isHost && (
             <div className="row" style={{ marginTop: "0.8rem" }}>
-              <button className="primary" type="button" disabled={busy} onClick={hostUnlockGuessing}>
+              <button className="figma-btn figma-btn-primary" type="button" disabled={busy} onClick={hostUnlockGuessing}>
                 We’re done presenting — open guessing
               </button>
             </div>
@@ -517,7 +527,7 @@ export function RoomView({ roomId, onLeave }: Props) {
       )}
 
       {room.phase === "r3_guessing" && me && (
-        <div className="card">
+        <div className="figma-card">
           <h2>Guess the original prompt</h2>
           <p className="hint">
             You each write what you think was the <strong>author’s</strong> full Round-1 text for every other
@@ -551,7 +561,7 @@ export function RoomView({ roomId, onLeave }: Props) {
             })}
           {!me.r3Submitted && (
             <div className="row" style={{ marginTop: "0.5rem" }}>
-              <button className="primary" type="button" disabled={busy} onClick={submitR3}>
+              <button className="figma-btn figma-btn-primary" type="button" disabled={busy} onClick={submitR3}>
                 Submit all guesses
               </button>
             </div>
@@ -562,7 +572,7 @@ export function RoomView({ roomId, onLeave }: Props) {
           {isHost && (
             <div className="row" style={{ marginTop: "0.6rem" }}>
               <button
-                className="primary"
+                className="figma-btn figma-btn-primary"
                 type="button"
                 disabled={busy || !allR3In}
                 onClick={hostReveal}
@@ -576,7 +586,7 @@ export function RoomView({ roomId, onLeave }: Props) {
       )}
 
       {room.phase === "results" && room.resultsRevealed && (
-        <div className="card">
+        <div className="figma-card">
           <h2>Guess reveal</h2>
           <p className="hint" style={{ marginTop: 0 }}>
             For each author: the <strong>real</strong> prompt is on top. Words that count for points are{" "}
@@ -629,7 +639,7 @@ export function RoomView({ roomId, onLeave }: Props) {
 
           {room.podiumVisible !== true && isHost && (
             <div className="row" style={{ marginTop: "1rem" }}>
-              <button className="primary" type="button" disabled={busy} onClick={hostShowPodium}>
+              <button className="figma-btn figma-btn-primary" type="button" disabled={busy} onClick={hostShowPodium}>
                 Show final podium &amp; full standings
               </button>
             </div>
@@ -748,17 +758,18 @@ export function RoomView({ roomId, onLeave }: Props) {
         </div>
       )}
 
-      <div className="card" style={{ marginTop: 12 }}>
+      <div className="figma-card figma-card--players" style={{ marginTop: 12 }}>
         <h3>Players in room</h3>
         <ul className="members" style={{ margin: 0 }}>
           {memberList.map((m) => (
             <li key={m.id}>
               <span>{m.name}</span>
-              {m.r1Submitted && <span className="pill" style={{ fontSize: "0.6rem" }}> R1 in</span>}
+              {m.r1Submitted && <span className="figma-pill figma-pill--small"> R1 in</span>}
             </li>
           ))}
         </ul>
       </div>
+    </div>
     </div>
   );
 }
