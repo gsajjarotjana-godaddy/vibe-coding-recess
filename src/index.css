@@ -279,6 +279,46 @@ p {
   white-space: pre-line;
 }
 
+ul.figma-session-subtitle--bullets {
+  list-style: disc;
+  margin: 0 0 1.25rem;
+  padding-left: 1.35em;
+  color: #fff;
+  font-size: 1.05rem;
+  line-height: 1.45;
+  text-align: left;
+  max-width: 100%;
+  white-space: normal;
+}
+
+.figma-session-subtitle--bullets li {
+  margin: 0 0 0.5em;
+}
+
+.figma-session-subtitle--bullets li:last-child {
+  margin-bottom: 0;
+}
+
+/** R2 build: assigned prompt (no box) — Figma token --figma-lime, 24px */
+.figma-r2-build-prompt {
+  color: var(--figma-lime);
+  font-size: 24px;
+  line-height: 1.35;
+  font-weight: 400;
+  margin: 0;
+}
+
+.figma-r2-build-hint {
+  color: var(--figma-text);
+  font-size: 1.05rem;
+  line-height: 1.45;
+  margin: 2.25rem 0 0;
+}
+
+.figma-r2-build-cta {
+  margin-top: 2.75rem;
+}
+
 .figma-waiting-title {
   font-size: 1.2rem;
   font-weight: 500;
@@ -948,12 +988,6 @@ p {
 /** Instruction step: left-align title, subtitle, and content (e.g. examples) */
 .figma-card--instruction {
   text-align: left;
-}
-
-.figma-instruction-stack {
-  width: 100%;
-  text-align: left;
-  align-self: stretch;
 }
 
 .figma-card-title {

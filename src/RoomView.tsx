@@ -102,7 +102,6 @@ export function RoomView({ roomId, onLeave }: Props) {
   const isHost = Boolean(hostMemberId && uid && hostMemberId === uid);
   const hadMe = useRef(false);
   const leftAfterRemoval = useRef(false);
-  const r2Auto = useRef(false);
 
   const clearCtaErr = useCallback(() => {
     if (ctaErrTimer.current) {
@@ -194,6 +193,8 @@ export function RoomView({ roomId, onLeave }: Props) {
   const uids = useMemo(() => Object.keys(members), [members]);
   const allR1Submitted =
     uids.length >= 2 && uids.every((id) => members[id]?.r1Submitted);
+  const allR2VibeDone =
+    uids.length >= 2 && uids.every((id) => members[id]?.r2VibeDone);
 
   const lobbyMembersByJoin = useMemo(
     () =>
@@ -201,6 +202,7 @@ export function RoomView({ roomId, onLeave }: Props) {
         id: m.id,
         name: m.name,
         r1Submitted: m.r1Submitted,
+        r2VibeDone: m.r2VibeDone,
       })),
     [members]
   );
@@ -282,27 +284,6 @@ export function RoomView({ roomId, onLeave }: Props) {
       setBusy(false);
     }
   }
-
-  // Auto-advance R2: all vibe done -> r2_waiting
-  useEffect(() => {
-    if (!room || room.phase !== "r2_coding" || uids.length < 2) return;
-    if (!uids.every((id) => members[id]?.r2VibeDone)) return;
-    if (r2Auto.current) return;
-    r2Auto.current = true;
-    void (async () => {
-      try {
-        await updateDoc(doc(db, "rooms", roomId), { phase: "r2_waiting" as const });
-      } catch {
-        r2Auto.current = false;
-      }
-    })();
-  }, [room, uids, members, db, roomId]);
-
-  useEffect(() => {
-    if (room?.phase !== "r2_waiting") {
-      r2Auto.current = false;
-    }
-  }, [room?.phase]);
 
   const scores = useMemo(() => {
     if (!Object.keys(members).length) return [];
@@ -526,7 +507,7 @@ export function RoomView({ roomId, onLeave }: Props) {
     if (p === "r2_intro") {
       return { show: true, label: "Start round", onAction: goR2IntroToCoding };
     }
-    if (p === "r2_waiting") {
+    if ((p === "r2_coding" && allR2VibeDone) || p === "r2_waiting") {
       return { show: true, label: "Continue", onAction: goR2WaitToR3Intro };
     }
     if (p === "r3_intro") {
@@ -609,16 +590,30 @@ export function RoomView({ roomId, onLeave }: Props) {
                 <span className="figma-title-pr">Pr</span>ompt
               </span>
             </h1>
-            <p className="figma-subtitle">
-              {allR1Submitted
-                ? "Everyone’s in. The host can continue to Round 2 when ready."
-                : "Waiting for other players.."}
-            </p>
+            <p className="figma-subtitle">Waiting for others to submit..</p>
             <LobbyPlayerGrid
               members={lobbyMembersByJoin}
               hostMemberId={hostMemberId}
               onHostReset={hostResetEntireSession}
               variant="r1-wait"
+            />
+          </>
+        ) : room &&
+          ((room.phase === "r2_coding" && me?.r2VibeDone) || room.phase === "r2_waiting") ? (
+          <>
+            {err && <p className="figma-error" style={{ marginTop: 0 }}>{err}</p>}
+            <h1 className="figma-title">
+              <span className="figma-title-strong">Guess the</span>{" "}
+              <span className="figma-title-accent">
+                <span className="figma-title-pr">Pr</span>ompt
+              </span>
+            </h1>
+            <p className="figma-subtitle">Waiting for others to finish building..</p>
+            <LobbyPlayerGrid
+              members={lobbyMembersByJoin}
+              hostMemberId={hostMemberId}
+              onHostReset={hostResetEntireSession}
+              variant="r2-wait"
             />
           </>
         ) : (
@@ -694,62 +689,53 @@ export function RoomView({ roomId, onLeave }: Props) {
         {room.phase === "r2_intro" && (
           <div className="figma-card figma-card--instruction">
             <SessionPageLayout
-              titleStart="Round 2 – "
-              titleAccent="Vibe code"
+              titleStart="Round 2 - "
+              titleAccent="Vibe Coding Time!"
               subtitle={
-                "You will receive a random prompt from another player. You have about " +
-                (room.r2DurationMins ?? 12) +
-                " minutes to build it in Cursor, then the group will guess prompts from screen shares."
+                <ul className="figma-session-subtitle--bullets">
+                  <li>
+                    Everyone will receive a randomly assigned prompt created by another player, which will appear at the
+                    top of the screen.
+                  </li>
+                  <li>
+                    You’ll have 10 minutes to vibe code it in Cursor, building the idea as closely as possible.
+                  </li>
+                  <li>You can create a basic HTML page.</li>
+                </ul>
               }
             />
           </div>
         )}
 
-        {room.phase === "r2_coding" && me && (
-          <div className="figma-instruction-stack">
+        {room.phase === "r2_coding" && me && !me.r2VibeDone && (
+          <div className="figma-card figma-card--instruction">
             <SessionPageLayout
-              titleStart="Build this – "
-              titleAccent="Vibe in Cursor"
+              titleStart="Build this - "
+              titleAccent="Go to Cursor"
               headerRight={r2CodingHeaderTimeBadge(room)}
-              subtitle="Time to Vibe Code in Cursor!"
+              subtitle="Prompt to build:"
             />
-            <div className="figma-card">
-              {assignee && me.r2ForUid ? (
-                <>
-                  <p className="label">Prompt to build (from {assignee.name}, not you)</p>
-                  <div className="reveal" style={{ borderColor: "rgba(110,231,197,0.35)" }}>
-                    {assignee.r1Prompt || "—"}
-                  </div>
-                  {me.r2VibeDone ? (
-                    <SessionWaitingBlock
-                      title="You’re done"
-                      subtitle="Wait for everyone to tap I’m done. The host will then open Round 3 instructions."
-                    />
-                  ) : (
-                    <div className="row" style={{ marginTop: 12 }}>
-                      <button
-                        className="figma-btn figma-btn-primary"
-                        type="button"
-                        disabled={busy}
-                        onClick={r2VibeDoneClick}
-                      >
-                        I’m done
-                      </button>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <p className="muted">Waiting for assignment…</p>
-              )}
-            </div>
+            {assignee && me.r2ForUid ? (
+              <>
+                <p className="figma-r2-build-prompt">{assignee.r1Prompt || "—"}</p>
+                <p className="figma-r2-build-hint">Time to vibe code in Cursor!</p>
+                <div className="row figma-r2-build-cta">
+                  <button
+                    type="button"
+                    className="figma-btn-start figma-btn-start--lobby"
+                    disabled={busy}
+                    onClick={r2VibeDoneClick}
+                  >
+                    I’m done <span className="figma-btn-arrow">→</span>
+                  </button>
+                </div>
+              </>
+            ) : (
+              <p className="muted" style={{ marginTop: 0 }}>
+                Waiting for assignment…
+              </p>
+            )}
           </div>
-        )}
-
-        {room.phase === "r2_waiting" && (
-          <SessionWaitingBlock
-            title="Ready for screen shares"
-            subtitle="The host will start Round 3: everyone shares their screen in turn, then the group guesses."
-          />
         )}
 
         {room.phase === "r3_intro" && (

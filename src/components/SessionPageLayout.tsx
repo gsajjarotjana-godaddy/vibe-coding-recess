@@ -7,7 +7,8 @@ type Props = {
   titleAccent: string;
   /** Top-right, aligned with title (e.g. time badge) */
   headerRight?: ReactNode;
-  subtitle?: string;
+  /** Plain string (wrapped in a paragraph) or a custom node (e.g. bullet list). */
+  subtitle?: ReactNode;
   children?: ReactNode;
   /** e.g. instruction cards */
   footerInCard?: ReactNode;
@@ -26,7 +27,13 @@ export function SessionPageLayout({ titleStart, titleAccent, headerRight, subtit
         </h1>
         {headerRight != null ? <div className="figma-session-head__tr">{headerRight}</div> : null}
       </div>
-      {subtitle ? <p className="figma-session-subtitle">{subtitle}</p> : null}
+      {subtitle != null ? (
+        typeof subtitle === "string" ? (
+          <p className="figma-session-subtitle">{subtitle}</p>
+        ) : (
+          subtitle
+        )
+      ) : null}
       {children}
       {footerInCard}
     </div>

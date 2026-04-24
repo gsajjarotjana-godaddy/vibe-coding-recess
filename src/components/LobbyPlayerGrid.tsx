@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useLongPress } from "../hooks/useLongPress";
 import { publicAsset } from "../lib/publicAsset";
 
-export type LobbyGridMember = { id: string; name: string; r1Submitted?: boolean };
+export type LobbyGridMember = { id: string; name: string; r1Submitted?: boolean; r2VibeDone?: boolean };
 
 /** blue → pink → green — Figma 892:34345 */
 const LOBBY_HUES = ["blue", "pink", "green"] as const;
@@ -71,12 +71,6 @@ function LobbyPlayerCell({ m, index, isHostName, onHostReset, onHostResetEnabled
             host
           </span>
         )}
-        {r1Status === "in" && isHostName && (
-          <span className="figma-pill figma-pill--small" style={{ marginLeft: 6, verticalAlign: "middle" }}>
-            {" "}
-            in
-          </span>
-        )}
       </p>
     </div>
   );
@@ -87,8 +81,8 @@ type Props = {
   hostMemberId: string | null;
   /** Omitted = no long-press reset (use in previews only). */
   onHostReset?: () => void;
-  /** "lobby" = Home; "r1-wait" = prompt submitted, show who’s in / pending. */
-  variant?: "lobby" | "r1-wait";
+  /** "lobby" = Home; "r1-wait" = prompt submitted; "r2-wait" = I’m done on build step. */
+  variant?: "lobby" | "r1-wait" | "r2-wait";
 };
 
 export function LobbyPlayerGrid({ members, hostMemberId, onHostReset, variant = "lobby" }: Props) {
@@ -100,11 +94,18 @@ export function LobbyPlayerGrid({ members, hostMemberId, onHostReset, variant = 
   const onHostResetEnabled = Boolean(onHostReset);
   const hostReset = onHostReset ?? (() => {});
 
-  const r1 = (id: string): "off" | "pending" | "in" => {
-    if (variant !== "r1-wait") return "off";
-    const s = members.find((x) => x.id === id);
-    if (!s) return "pending";
-    return s.r1Submitted ? "in" : "pending";
+  const statusFor = (id: string): "off" | "pending" | "in" => {
+    if (variant === "r1-wait") {
+      const s = members.find((x) => x.id === id);
+      if (!s) return "pending";
+      return s.r1Submitted ? "in" : "pending";
+    }
+    if (variant === "r2-wait") {
+      const s = members.find((x) => x.id === id);
+      if (!s) return "pending";
+      return s.r2VibeDone ? "in" : "pending";
+    }
+    return "off";
   };
 
   if (items.length === 0) return null;
@@ -113,7 +114,9 @@ export function LobbyPlayerGrid({ members, hostMemberId, onHostReset, variant = 
     <div className="figma-lobby">
       <div
         className="figma-lobby-box"
-        aria-label={variant === "r1-wait" ? "Who has submitted a prompt" : "Who joined"}
+        aria-label={
+          variant === "r1-wait" ? "Who has submitted a prompt" : variant === "r2-wait" ? "Who has finished building" : "Who joined"
+        }
       >
         <div className="figma-lobby-group">
           <div
@@ -127,7 +130,7 @@ export function LobbyPlayerGrid({ members, hostMemberId, onHostReset, variant = 
                 isHostName={Boolean(hostMemberId && m.id === hostMemberId)}
                 onHostReset={hostReset}
                 onHostResetEnabled={onHostResetEnabled}
-                r1Status={r1(m.id)}
+                r1Status={statusFor(m.id)}
               />
             ))}
           </div>
@@ -147,7 +150,7 @@ export function LobbyPlayerGrid({ members, hostMemberId, onHostReset, variant = 
                     isHostName={Boolean(hostMemberId && m.id === hostMemberId)}
                     onHostReset={hostReset}
                     onHostResetEnabled={onHostResetEnabled}
-                    r1Status={r1(m.id)}
+                    r1Status={statusFor(m.id)}
                   />
                 );
               })}
@@ -176,7 +179,7 @@ export function LobbyPlayerGrid({ members, hostMemberId, onHostReset, variant = 
                       isHostName={Boolean(hostMemberId && m.id === hostMemberId)}
                       onHostReset={hostReset}
                       onHostResetEnabled={onHostResetEnabled}
-                      r1Status={r1(m.id)}
+                      r1Status={statusFor(m.id)}
                     />
                   );
                 })}
