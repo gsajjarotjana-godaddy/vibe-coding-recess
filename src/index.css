@@ -262,6 +262,10 @@ p {
   text-align: left;
 }
 
+.figma-session-title--plain {
+  color: #fff;
+}
+
 .figma-session-title__accent {
   font-family: "Menlo", "SFMono-Regular", ui-monospace, monospace;
   color: var(--figma-cyan-bright);

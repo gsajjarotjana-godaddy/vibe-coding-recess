@@ -93,6 +93,7 @@ export function RoomView({ roomId, onLeave }: Props) {
   const [busy, setBusy] = useState(false);
   const [r1Text, setR1Text] = useState("");
   const [r3Line, setR3Line] = useState("");
+  const [r3PresentContinue, setR3PresentContinue] = useState(false);
   const [inAppCtaErr, setInAppCtaErr] = useState(false);
   const ctaErrTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -195,6 +196,10 @@ export function RoomView({ roomId, onLeave }: Props) {
     }
     setR3Line((me.r3Guesses && me.r3Guesses[tUid]) || "");
   }, [me, room?.phase, tUid, me?.r3Guesses, room?.r3CurrentPresenter]);
+
+  useEffect(() => {
+    setR3PresentContinue(false);
+  }, [room?.phase, room?.r3CurrentPresenter]);
 
   const uids = useMemo(() => Object.keys(members), [members]);
   const allR1Submitted =
@@ -464,8 +469,8 @@ export function RoomView({ roomId, onLeave }: Props) {
     if (!me || !room || !tUid) return;
     if (uid === tUid) return;
     const guess = r3Line.trim();
-    if (guess.length < 1) {
-      setErr("Add a guess.");
+    if (countWords(guess) < R1_MIN_WORDS) {
+      setErr(`Use at least ${R1_MIN_WORDS} words.`);
       return;
     }
     const merged: Record<string, string> = { ...me.r3Guesses, [tUid]: guess };
@@ -808,31 +813,69 @@ export function RoomView({ roomId, onLeave }: Props) {
 
         {room.phase === "r3_guess" && tUid && me && (
           <div className="figma-card figma-card--instruction">
-            <SessionPageLayout
-              titleStart="Round 3 – "
-              titleAccent="Guess the Prompt"
-              subtitle={
-                `${members[tUid]?.name || "?"} just shared. What was their Round 1 prompt? You get points for words that match the real one.`
-              }
-            />
-            {uid === tUid ? (
-              <p className="muted" style={{ color: "var(--accent)" }}>
-                You can’t guess your own prompt. Wait for the others to submit.
-              </p>
-            ) : (me.r3Guesses && me.r3Guesses[tUid] || "").trim() ? (
+            {uid === tUid && !r3PresentContinue ? (
+              <>
+                <SessionPageLayout
+                  titleStart="Guess the Prompt"
+                  titleAccent=""
+                  titlePlain
+                  subtitle="You can’t guess your own prompt. Wait for the others to submit."
+                />
+                <div className="row" style={{ marginTop: 10 }}>
+                  <button
+                    type="button"
+                    className="figma-btn-start figma-btn-start--lobby"
+                    onClick={() => {
+                      setErr(null);
+                      setR3PresentContinue(true);
+                    }}
+                  >
+                    Continue <span className="figma-btn-arrow">→</span>
+                  </button>
+                </div>
+              </>
+            ) : uid === tUid && r3PresentContinue ? (
               <SessionWaitingBlock
-                title="You’re in"
-                subtitle="Wait for everyone to submit, then the host can continue to the reveal."
+                title="Waiting for others"
+                subtitle="When everyone has submitted their guesses, the host can continue to the reveal."
               />
+            ) : (me.r3Guesses && me.r3Guesses[tUid] || "").trim() ? (
+              <>
+                <SessionPageLayout
+                  titleStart="Guess the Prompt"
+                  titleAccent=""
+                  titlePlain
+                  subtitle={
+                    "Type in a prompt with at least 10 words that you think may have been the original prompt. " +
+                    "You get a point for each word that matches."
+                  }
+                />
+                <SessionWaitingBlock
+                  title="You’re in"
+                  subtitle="Wait for everyone to submit, then the host can continue to the reveal."
+                />
+              </>
             ) : (
               <>
+                <SessionPageLayout
+                  titleStart="Guess the Prompt"
+                  titleAccent=""
+                  titlePlain
+                  subtitle={
+                    "Type in a prompt with at least 10 words that you think may have been the original prompt. " +
+                    "You get a point for each word that matches."
+                  }
+                />
                 <p className="label">Your guess</p>
                 <textarea
                   value={r3Line}
-                  onChange={(e) => setR3Line(e.target.value)}
+                  onChange={(e) => {
+                    setErr(null);
+                    setR3Line(e.target.value);
+                  }}
                   rows={8}
                   maxLength={2000}
-                  placeholder="Your best guess at their full prompt"
+                  placeholder="Type your guess (at least 10 words)"
                 />
                 <div className="row" style={{ marginTop: 10 }}>
                   <button
@@ -841,7 +884,7 @@ export function RoomView({ roomId, onLeave }: Props) {
                     disabled={busy}
                     onClick={submitR3Round}
                   >
-                    Submit guess <span className="figma-btn-arrow">→</span>
+                    I’m done <span className="figma-btn-arrow">→</span>
                   </button>
                 </div>
               </>
