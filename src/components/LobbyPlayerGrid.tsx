@@ -2,7 +2,14 @@ import { useMemo } from "react";
 import { useLongPress } from "../hooks/useLongPress";
 import { publicAsset } from "../lib/publicAsset";
 
-export type LobbyGridMember = { id: string; name: string; r1Submitted?: boolean; r2VibeDone?: boolean };
+export type LobbyGridMember = {
+  id: string;
+  name: string;
+  r1Submitted?: boolean;
+  r2VibeDone?: boolean;
+  r3Guesses?: Record<string, string>;
+  r3PresentRoundAck?: boolean;
+};
 
 /** blue → pink → green — Figma 892:34345 */
 const LOBBY_HUES = ["blue", "pink", "green"] as const;
@@ -81,11 +88,13 @@ type Props = {
   hostMemberId: string | null;
   /** Omitted = no long-press reset (use in previews only). */
   onHostReset?: () => void;
-  /** "lobby" = Home; "r1-wait" = prompt submitted; "r2-wait" = I’m done on build step. */
-  variant?: "lobby" | "r1-wait" | "r2-wait";
+  /** "lobby" = Home; "r1-wait" = prompt submitted; "r2-wait" = I’m done on build; "r3-wait" = guess round. */
+  variant?: "lobby" | "r1-wait" | "r2-wait" | "r3-wait";
+  /** Current presenter uid — required for `r3-wait`. */
+  r3TargetUid?: string | null;
 };
 
-export function LobbyPlayerGrid({ members, hostMemberId, onHostReset, variant = "lobby" }: Props) {
+export function LobbyPlayerGrid({ members, hostMemberId, onHostReset, variant = "lobby", r3TargetUid = null }: Props) {
   const { row1, row2, tailRows, row1Stagger, row2Stagger, tailStagger, items } = useMemo(
     () => buildLobbyRows(members),
     [members]
@@ -105,6 +114,12 @@ export function LobbyPlayerGrid({ members, hostMemberId, onHostReset, variant = 
       if (!s) return "pending";
       return s.r2VibeDone ? "in" : "pending";
     }
+    if (variant === "r3-wait" && r3TargetUid) {
+      const s = members.find((x) => x.id === id);
+      if (!s) return "pending";
+      if (id === r3TargetUid) return s.r3PresentRoundAck ? "in" : "pending";
+      return (s.r3Guesses?.[r3TargetUid] || "").trim() ? "in" : "pending";
+    }
     return "off";
   };
 
@@ -115,7 +130,13 @@ export function LobbyPlayerGrid({ members, hostMemberId, onHostReset, variant = 
       <div
         className="figma-lobby-box"
         aria-label={
-          variant === "r1-wait" ? "Who has submitted a prompt" : variant === "r2-wait" ? "Who has finished building" : "Who joined"
+          variant === "r1-wait"
+            ? "Who has submitted a prompt"
+            : variant === "r2-wait"
+              ? "Who has finished building"
+              : variant === "r3-wait"
+                ? "Who has finished this guess round"
+                : "Who joined"
         }
       >
         <div className="figma-lobby-group">

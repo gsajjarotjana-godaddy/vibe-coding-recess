@@ -77,6 +77,8 @@ export interface MemberDoc {
   manualPointDelta: number;
   /** R2: player tapped I’m done. */
   r2VibeDone?: boolean;
+  /** R3: current presenter tapped Continue on the guess screen. */
+  r3PresentRoundAck?: boolean;
 }
 
 export interface RoomState {

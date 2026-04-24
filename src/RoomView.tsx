@@ -32,7 +32,7 @@ import { resetEntireSession } from "./lib/roomReset";
 import { HighlightText } from "./components/HighlightText";
 import { LobbyPlayerGrid } from "./components/LobbyPlayerGrid";
 import { InstructionTimeBadge } from "./components/InstructionTimeBadge";
-import { SessionPageLayout, SessionWaitingBlock } from "./components/SessionPageLayout";
+import { SessionPageLayout } from "./components/SessionPageLayout";
 import { FigmaHomeDecor } from "./FigmaHomeDecor";
 
 type Props = {
@@ -59,6 +59,15 @@ function r2CodingHeaderTimeBadge(room: RoomDoc) {
 }
 
 const INAPP_CTA_ERR_MS = 2500;
+
+/** Title case for display (e.g. "grace's" → "Grace's" is handled if split words; "john doe" → "John Doe"). */
+function toTitleCase(s: string): string {
+  return s
+    .trim()
+    .split(/\s+/)
+    .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w))
+    .join(" ");
+}
 
 function InAppCtaButton({
   label,
@@ -93,7 +102,6 @@ export function RoomView({ roomId, onLeave }: Props) {
   const [busy, setBusy] = useState(false);
   const [r1Text, setR1Text] = useState("");
   const [r3Line, setR3Line] = useState("");
-  const [r3PresentContinue, setR3PresentContinue] = useState(false);
   const [inAppCtaErr, setInAppCtaErr] = useState(false);
   const ctaErrTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -189,6 +197,12 @@ export function RoomView({ roomId, onLeave }: Props) {
     void updateDoc(doc(db, "rooms", roomId), { phase: "r3_guess" as const, r3AnswerRevealed: false });
   }, [room, isHost, db, roomId]);
 
+  /** Legacy: r3_wait removed; jump to reveal. */
+  useEffect(() => {
+    if (!room || room.phase !== "r3_wait" || !isHost) return;
+    void updateDoc(doc(db, "rooms", roomId), { phase: "r3_reveal" as const, r3AnswerRevealed: false });
+  }, [room, isHost, db, roomId]);
+
   const tUid = room?.r3CurrentPresenter;
   useEffect(() => {
     if (!me || !room || room.phase !== "r3_guess" || !tUid) {
@@ -196,10 +210,6 @@ export function RoomView({ roomId, onLeave }: Props) {
     }
     setR3Line((me.r3Guesses && me.r3Guesses[tUid]) || "");
   }, [me, room?.phase, tUid, me?.r3Guesses, room?.r3CurrentPresenter]);
-
-  useEffect(() => {
-    setR3PresentContinue(false);
-  }, [room?.phase, room?.r3CurrentPresenter]);
 
   const uids = useMemo(() => Object.keys(members), [members]);
   const allR1Submitted =
@@ -214,19 +224,28 @@ export function RoomView({ roomId, onLeave }: Props) {
         name: m.name,
         r1Submitted: m.r1Submitted,
         r2VibeDone: m.r2VibeDone,
+        r3Guesses: m.r3Guesses,
+        r3PresentRoundAck: m.r3PresentRoundAck,
       })),
     [members]
   );
 
-  /** Background icon drift: on for waiting phases and inline “you’re in / wait for others” states. r3_guess stays static (no drift). */
+  const r3GuessInWaiting = useMemo(() => {
+    if (!room || room.phase !== "r3_guess" || !tUid || !me) return false;
+    if (uid === tUid) return Boolean(me.r3PresentRoundAck);
+    return Boolean((me.r3Guesses?.[tUid] || "").trim().length);
+  }, [room, tUid, me, uid]);
+
+  /** Background icon drift: on for waiting phases and r3 guess “you’re in” full-page wait; form step stays static. */
   const decorDriftEnabled = useMemo(() => {
     if (!room) return true;
     const p = room.phase;
-    if (p === "r2_waiting" || p === "r3_wait") return true;
+    if (p === "r2_waiting") return true;
     if (p === "r1_writing" && (me?.r1Submitted || allR1Submitted)) return true;
     if (p === "r2_coding" && me?.r2VibeDone) return true;
+    if (p === "r3_guess" && r3GuessInWaiting) return true;
     return false;
-  }, [room, me, allR1Submitted]);
+  }, [room, me, allR1Submitted, r3GuessInWaiting]);
 
   const withBusy = useCallback(async (fn: () => Promise<void>) => {
     setErr(null);
@@ -396,16 +415,22 @@ export function RoomView({ roomId, onLeave }: Props) {
   async function hostR3PickToPresent() {
     await withBusy(async () => {
       if (!room?.r3CurrentPresenter) return;
-      await updateDoc(doc(db, "rooms", roomId), {
+      const batch = writeBatch(db);
+      uids.forEach((id) => {
+        batch.update(doc(db, "rooms", roomId, "members", id), { r3PresentRoundAck: false });
+      });
+      batch.update(doc(db, "rooms", roomId), {
         phase: "r3_guess" as const,
         r3AnswerRevealed: false,
       });
+      await batch.commit();
     });
   }
 
-  async function hostR3WaitToReveal() {
+  async function r3PresentContinue() {
+    if (!uid) return;
     await withBusy(async () => {
-      await updateDoc(doc(db, "rooms", roomId), { phase: "r3_reveal" as const, r3AnswerRevealed: false });
+      await updateDoc(doc(db, "rooms", roomId, "members", uid), { r3PresentRoundAck: true });
     });
   }
 
@@ -474,13 +499,15 @@ export function RoomView({ roomId, onLeave }: Props) {
       return;
     }
     const merged: Record<string, string> = { ...me.r3Guesses, [tUid]: guess };
-    const nextMe = { ...me, r3Guesses: merged };
-    const newMembers: Record<string, MemberDoc & { id: string }> = { ...members, [uid]: { ...nextMe, id: uid } };
     await withBusy(async () => {
       await updateDoc(doc(db, "rooms", roomId, "members", uid), { r3Guesses: merged });
-      if (allGuessedForTarget(newMembers, uids, tUid)) {
-        await updateDoc(doc(db, "rooms", roomId), { phase: "r3_wait" as const });
-      }
+    });
+  }
+
+  async function goR3GuessWaitToReveal() {
+    await withBusy(async () => {
+      if (!room || room.phase !== "r3_guess" || !tUid || !allGuessedForTarget(members, uids, tUid)) return;
+      await updateDoc(doc(db, "rooms", roomId), { phase: "r3_reveal" as const, r3AnswerRevealed: false });
     });
   }
 
@@ -522,11 +549,8 @@ export function RoomView({ roomId, onLeave }: Props) {
     if (p === "r3_pick" && room.r3PickedRevealed && room.r3CurrentPresenter) {
       return { show: true, label: "Done Sharing", onAction: hostR3PickToPresent, disabled: busy };
     }
-    if (p === "r3_wait") {
-      return { show: true, label: "Continue", onAction: hostR3WaitToReveal };
-    }
-    if (p === "r3_reveal" && !room.r3AnswerRevealed) {
-      return { show: true, label: "Reveal", onAction: hostRevealAnswer, disabled: busy };
+    if (p === "r3_guess" && tUid && allGuessedForTarget(members, uids, tUid)) {
+      return { show: true, label: "Continue", onAction: goR3GuessWaitToReveal, disabled: busy };
     }
     if (p === "r3_reveal" && room.r3AnswerRevealed) {
       return {
@@ -617,6 +641,24 @@ export function RoomView({ roomId, onLeave }: Props) {
               hostMemberId={hostMemberId}
               onHostReset={hostResetEntireSession}
               variant="r2-wait"
+            />
+          </>
+        ) : room && r3GuessInWaiting && tUid ? (
+          <>
+            {err && <p className="figma-error" style={{ marginTop: 0 }}>{err}</p>}
+            <h1 className="figma-title">
+              <span className="figma-title-strong">Guess the</span>{" "}
+              <span className="figma-title-accent">
+                <span className="figma-title-pr">Pr</span>ompt
+              </span>
+            </h1>
+            <p className="figma-subtitle">Waiting for others to submit..</p>
+            <LobbyPlayerGrid
+              members={lobbyMembersByJoin}
+              hostMemberId={hostMemberId}
+              onHostReset={hostResetEntireSession}
+              variant="r3-wait"
+              r3TargetUid={tUid}
             />
           </>
         ) : (
@@ -776,11 +818,6 @@ export function RoomView({ roomId, onLeave }: Props) {
                         <span className="figma-session-title__accent">{currentPresenter.name}</span>
                       </h2>
                     ) : null}
-                    {!isHost ? (
-                      <p className="figma-waiting-sub" style={{ margin: 0, textAlign: "center" }}>
-                        Waiting for the host to tap <strong>Done Sharing</strong> in the top bar.
-                      </p>
-                    ) : null}
                   </div>
                 </div>
               ) : (
@@ -811,9 +848,9 @@ export function RoomView({ roomId, onLeave }: Props) {
           </div>
         )}
 
-        {room.phase === "r3_guess" && tUid && me && (
+        {room.phase === "r3_guess" && tUid && me && !r3GuessInWaiting && (
           <div className="figma-card figma-card--instruction">
-            {uid === tUid && !r3PresentContinue ? (
+            {uid === tUid ? (
               <>
                 <SessionPageLayout
                   titleStart="Guess the Prompt"
@@ -825,35 +862,15 @@ export function RoomView({ roomId, onLeave }: Props) {
                   <button
                     type="button"
                     className="figma-btn-start figma-btn-start--lobby"
+                    disabled={busy}
                     onClick={() => {
                       setErr(null);
-                      setR3PresentContinue(true);
+                      void r3PresentContinue();
                     }}
                   >
                     Continue <span className="figma-btn-arrow">→</span>
                   </button>
                 </div>
-              </>
-            ) : uid === tUid && r3PresentContinue ? (
-              <SessionWaitingBlock
-                title="Waiting for others"
-                subtitle="When everyone has submitted their guesses, the host can continue to the reveal."
-              />
-            ) : (me.r3Guesses && me.r3Guesses[tUid] || "").trim() ? (
-              <>
-                <SessionPageLayout
-                  titleStart="Guess the Prompt"
-                  titleAccent=""
-                  titlePlain
-                  subtitle={
-                    "Type in a prompt with at least 10 words that you think may have been the original prompt. " +
-                    "You get a point for each word that matches."
-                  }
-                />
-                <SessionWaitingBlock
-                  title="You’re in"
-                  subtitle="Wait for everyone to submit, then the host can continue to the reveal."
-                />
               </>
             ) : (
               <>
@@ -892,59 +909,75 @@ export function RoomView({ roomId, onLeave }: Props) {
           </div>
         )}
 
-        {room.phase === "r3_wait" && (
-          <SessionWaitingBlock
-            title="Waiting for the host"
-            subtitle="When everyone is in, the host can continue to the reveal for this person."
-          />
-        )}
-
         {room.phase === "r3_reveal" && currentPresenter && (
-          <div className="figma-card">
-            <h2 className="figma-card-title" style={{ marginTop: 0 }}>
-              {currentPresenter.name}’s round
+          <div className="figma-card figma-card--instruction">
+            <h2 className="r3-reveal__heading figma-card-title--left" style={{ marginTop: 0 }}>
+              {toTitleCase(currentPresenter.name)}’s Round
             </h2>
             {room.r3AnswerRevealed ? (
               <>
-                <p className="label">The real prompt</p>
-                <div className="reveal" style={{ borderColor: "rgba(61,220,132,0.35)" }}>
+                <div className="reveal reveal--prompt reveal--answer">
                   <HighlightText as="div" text={answerText} target={answerText} />
                 </div>
-                <h3 className="label" style={{ marginTop: 16, marginBottom: 6 }}>
-                  Guesses (highest match first; green = word in real prompt, +1 on match)
-                </h3>
-                {uids
-                  .filter((gId) => gId !== room.r3CurrentPresenter)
-                  .map((gId) => {
-                    const guesser = members[gId];
-                    if (!guesser) return null;
-                    const gText = (guesser.r3Guesses && guesser.r3Guesses[room.r3CurrentPresenter!]) || "";
-                    const s = scoreGuess(gText, answerText);
-                    return { gId, guesser, gText, s };
-                  })
-                  .filter(
-                    (row): row is { gId: string; guesser: MemberDoc & { id: string }; gText: string; s: number } =>
-                      row != null
-                  )
-                  .sort((a, b) => b.s - a.s)
-                  .map(({ gId, guesser, gText, s: matchPts }) => (
-                    <div className="guess-reveal-line" key={gId} style={{ marginBottom: 10 }}>
-                      <strong>
-                        {guesser.name} — {matchPts} match pts
-                      </strong>
-                      <br />
-                      {gText.trim() ? (
-                        <HighlightText withPop as="span" text={gText} target={answerText} />
-                      ) : (
-                        <span className="muted">(no guess)</span>
-                      )}
-                    </div>
-                  ))}
+                <div className="guess-reveal-block">
+                  <p className="guess-reveal-section-title">Guesses</p>
+                  <div className="guess-reveal-list" role="list">
+                  {uids
+                    .filter((gId) => gId !== room.r3CurrentPresenter)
+                    .map((gId) => {
+                      const guesser = members[gId];
+                      if (!guesser) return null;
+                      const gText = (guesser.r3Guesses && guesser.r3Guesses[room.r3CurrentPresenter!]) || "";
+                      const s = scoreGuess(gText, answerText);
+                      return { gId, guesser, gText, s };
+                    })
+                    .filter(
+                      (row): row is { gId: string; guesser: MemberDoc & { id: string }; gText: string; s: number } =>
+                        row != null
+                    )
+                    .sort((a, b) => b.s - a.s)
+                    .map(({ gId, guesser, gText, s: matchPts }) => (
+                      <div className="guess-reveal-row" key={gId} role="listitem">
+                        <div className="guess-reveal-row__prompt">
+                          {gText.trim() ? (
+                            <HighlightText withPop as="span" text={gText} target={answerText} />
+                          ) : (
+                            <span className="muted">(no guess)</span>
+                          )}
+                        </div>
+                        <div className="guess-reveal-row__name">{toTitleCase(guesser.name)}</div>
+                        <div className="guess-reveal-row__pts" aria-label={`${matchPts} match points`}>
+                          +{matchPts} pts
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </>
             ) : (
-              <p className="muted" style={{ fontSize: "1.1rem", textAlign: "center", padding: "1rem 0" }}>
-                The real prompt is hidden. Host: tap <strong>Reveal</strong> in the top bar.
-              </p>
+              <>
+                <div className="reveal reveal--hidden-prompt">Prompt hidden</div>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 8,
+                    marginTop: 32,
+                  }}
+                >
+                  <InAppCtaButton
+                    label="Reveal"
+                    disabled={busy}
+                    onAction={() => {
+                      clearCtaErr();
+                      void hostRevealAnswer();
+                    }}
+                    isHost={isHost}
+                    onNotHost={bumpNotHost}
+                  />
+                </div>
+              </>
             )}
           </div>
         )}

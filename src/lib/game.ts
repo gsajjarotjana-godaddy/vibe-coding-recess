@@ -12,6 +12,7 @@ export function allGuessedForTarget(
   uids: string[],
   targetUid: string
 ): boolean {
+  if (!members[targetUid]?.r3PresentRoundAck) return false;
   return uids
     .filter((id) => id !== targetUid)
     .every((id) => (members[id]?.r3Guesses?.[targetUid] || "").trim().length > 0);
