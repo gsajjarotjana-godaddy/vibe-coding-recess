@@ -45,13 +45,18 @@ export const EXAMPLE_PROMPTS: string[] = [
   "A random lunch picker using only emojis with selectable checkbox options",
 ];
 
+/** Unify en/em dash and similar with ASCII hyphen so “one–screen” and “one-screen” match. */
+function normalizeHyphens(s: string): string {
+  return s.replace(/[\u2013\u2014\u2212]/g, "-");
+}
+
 function tokenize(s: string): string[] {
-  return s
+  return normalizeHyphens(s)
     .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/[^a-z0-9\-\s]/g, " ")
     .split(/\s+/)
-    .map((t) => t.trim())
-    .filter((t) => t.length > 0);
+    .map((t) => t.replace(/-+/g, "-").trim())
+    .filter((t) => t.length > 0 && /[a-z0-9]/.test(t));
 }
 
 /** All word tokens from the real prompt (including common words) for scoring and highlighting. */
@@ -61,10 +66,11 @@ export function getScoringTokenSet(target: string): Set<string> {
 
 /** True if a visible word token matches a scoring target token. */
 export function isWordInTargetSet(rawWord: string, set: Set<string>): boolean {
-  const n = rawWord
+  const n = normalizeHyphens(rawWord)
     .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
-  if (!n) return false;
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/-+/g, "-");
+  if (!n || !/[a-z0-9]/.test(n)) return false;
   return set.has(n);
 }
 
