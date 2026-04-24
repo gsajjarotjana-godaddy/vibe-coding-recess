@@ -1,7 +1,7 @@
 import type { Timestamp } from "firebase/firestore";
 import type { MemberDoc } from "./types";
 
-function joinTimeMs(m: MemberDoc & { id: string }): number {
+export function joinTimeMs(m: MemberDoc & { id: string }): number {
   const j = m.joinedAt;
   if (!j) return Number.POSITIVE_INFINITY;
   if (typeof j === "object" && "toMillis" in j && typeof (j as Timestamp).toMillis === "function") {
@@ -26,4 +26,15 @@ export function getHostMemberId(
     return list.sort((a, b) => a.name.localeCompare(b.name))[0]!.id;
   }
   return first.id;
+}
+
+/** Earliest join first; tie-break by name. */
+export function sortMembersByJoinOrder(
+  members: (MemberDoc & { id: string })[]
+): (MemberDoc & { id: string })[] {
+  return [...members].sort((a, b) => {
+    const d = joinTimeMs(a) - joinTimeMs(b);
+    if (d !== 0) return d;
+    return a.name.localeCompare(b.name);
+  });
 }

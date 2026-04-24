@@ -12,3 +12,14 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+declare module "@ux/icon/sparkles" {
+  import type { ComponentType, SVGProps } from "react";
+  const C: ComponentType<SVGProps<SVGSVGElement> & { title?: string }>;
+  export default C;
+}
+declare module "@ux/icon/lightning-bolt" {
+  import type { ComponentType, SVGProps } from "react";
+  const C: ComponentType<SVGProps<SVGSVGElement> & { title?: string }>;
+  export default C;
+}

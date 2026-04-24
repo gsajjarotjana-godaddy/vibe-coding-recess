@@ -78,5 +78,5 @@ export function App() {
     return <RoomView roomId={roomId} onLeave={() => setInSession(false)} />;
   }
 
-  return <Home onJoined={() => setInSession(true)} />;
+  return <Home onEnterGame={() => setInSession(true)} />;
 }

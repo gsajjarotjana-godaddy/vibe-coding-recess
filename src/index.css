@@ -88,12 +88,14 @@ p {
 
 .figma-landing .figma-btn-start:not(:disabled),
 .figma-landing .figma-name-submit:not(:disabled),
-.figma-landing .figma-name-pill__input {
+.figma-landing .figma-name-pill__input,
+.figma-landing .figma-menu.figma-menu--button {
   cursor: url("/figma/cursor-asterisk.svg") 10 10, auto;
 }
 
 .figma-landing .figma-btn-start:disabled,
-.figma-landing .figma-name-submit:disabled {
+.figma-landing .figma-name-submit:disabled,
+.figma-landing .figma-menu.figma-menu--button:disabled {
   cursor: not-allowed;
 }
 
@@ -158,6 +160,8 @@ p {
   /* 60px from viewport edge; inner row gap is on .figma-topbar */
   padding: 1.25rem 60px 0.5rem;
   text-align: center;
+  /* “for host only” is absolutely positioned under Let’s start; let it paint below the bar */
+  overflow: visible;
 }
 
 .figma-topbar--in-app {
@@ -193,10 +197,63 @@ p {
   color: var(--figma-lime);
 }
 
+.figma-menu.figma-menu--button {
+  background: none;
+  border: none;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  font-size: 0.8rem;
+  font-family: "Menlo", "SFMono-Regular", ui-monospace, monospace;
+  text-transform: none;
+  letter-spacing: 0.04em;
+  line-height: inherit;
+  color: var(--figma-lime);
+  cursor: pointer;
+  text-align: left;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.figma-menu.figma-menu--button:hover:not(:disabled) {
+  color: #d8eaa0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.figma-menu.figma-menu--button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.figma-menu.figma-menu--button:focus-visible {
+  outline: 2px solid var(--figma-cyan);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 .figma-topbar-cta {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  align-items: flex-start;
+  justify-content: flex-end;
+  min-width: 150px;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.figma-topbar-cta__wrap {
+  position: relative;
+  display: inline-flex;
+  min-width: 150px;
+  width: min-content;
+  max-width: 100%;
+  justify-content: center;
+  overflow: visible;
+}
+
+.figma-topbar-cta__wrap .figma-btn-start {
+  /* Button stays a fixed block in the top bar; message does not push it. */
+  flex: 0 0 auto;
 }
 
 .figma-btn-start {
@@ -228,6 +285,43 @@ p {
   cursor: not-allowed;
 }
 
+/* Name step: "Let’s start" hidden, non-interactive (see Home lobby plan) */
+.figma-btn-start.figma-btn-start--prelobby {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transition: none;
+}
+
+.figma-landing .figma-btn-start.figma-btn-start--prelobby:disabled {
+  opacity: 0;
+  cursor: default;
+}
+
+.figma-btn-start.figma-btn-start--lobby {
+  opacity: 1;
+  visibility: visible;
+}
+
+.figma-host-only-msg {
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  font-family: "Menlo", "SFMono-Regular", ui-monospace, monospace;
+  font-size: 0.65rem;
+  text-transform: lowercase;
+  text-align: center;
+  color: var(--figma-cyan);
+  margin: 0;
+  line-height: 1.2;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+  width: max-content;
+  pointer-events: none;
+}
+
 .figma-btn-arrow {
   font-size: 1.1rem;
   line-height: 1;
@@ -247,6 +341,12 @@ p {
   width: 100%;
   min-height: 0;
   box-sizing: border-box;
+}
+
+/* Home landing: same h1 + subtitle Y position for name step and lobby (avoid re-centering when content height changes) */
+.figma-hero.figma-hero--static-head {
+  justify-content: flex-start;
+  padding-top: clamp(2.5rem, 10dvh, 6rem);
 }
 
 .figma-title {
@@ -393,6 +493,185 @@ p {
   max-width: 24rem;
   line-height: 1.4;
   margin: 0.5rem 0 0;
+}
+
+/* Figma 892:34345 — lobby who’s-in (approx: card + player chips) */
+.figma-lobby {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: min(48rem, 100%);
+  /* Same top spacing as .figma-join-field for alignment with name step */
+  margin: clamp(1.75rem, 4.5dvh, 2.75rem) auto 0;
+  padding: 0 1rem;
+  box-sizing: border-box;
+}
+
+.figma-lobby-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden; /* no scroll; content fits via fluid cells below */
+  background: var(--figma-card);
+  border: 1px solid var(--figma-border);
+  border-radius: var(--figma-radius-card);
+  /* slightly tighter L/R so 5 avatars + gaps stay inside the card */
+  padding: clamp(1.5rem, 3.5dvh, 2rem) clamp(0.75rem, 2.5vw, 1rem);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+  /* Taller card even with a single player row */
+  min-height: clamp(12rem, 28dvh, 16rem);
+  box-sizing: border-box;
+}
+
+.figma-lobby-group {
+  --figma-lobby-col-gap: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1.75rem; /* between player rows */
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Rows: 5 in row1, 5 in row2, 11+ in row3; cells scale so a row of 5 never overflows */
+.figma-lobby-row {
+  --figma-lobby-gap: var(--figma-lobby-col-gap, 0.5rem);
+  display: flex;
+  flex-wrap: nowrap;
+  width: 100%;
+  min-width: 0;
+  justify-content: center;
+  align-items: flex-start;
+  /* 4 column gaps for up to 5 avatars per row (matches --figma-lobby-group row gap) */
+  gap: 1.75rem var(--figma-lobby-gap);
+}
+
+.figma-lobby-row--r1 {
+  margin-bottom: 0;
+}
+
+.figma-lobby-row--r1.figma-lobby-row--stagger,
+.figma-lobby-row--r2.figma-lobby-row--stagger,
+.figma-lobby-row--r3.figma-lobby-row--stagger {
+  /* last row only: offset when odd count; other rows left-aligned with each other */
+  padding-left: clamp(1.4rem, 3.2vw, 1.85rem);
+}
+
+.figma-lobby-row--r2,
+.figma-lobby-row--r3 {
+  margin-top: 0;
+}
+
+/* Empty slot when only one row: same block height as a real second row */
+.figma-lobby-row--r2.figma-lobby-row--placeholder {
+  display: block;
+  min-height: 6.5rem; /* ~ avatar + 2-line name, aligned with a populated row2 */
+  width: 100%;
+  max-width: 100%;
+  flex-shrink: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Col width: cap at 7.25rem, shrink so 5 + gaps fit row with no overflow */
+.figma-lobby-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(
+    7.25rem,
+    max(0px, calc((100% - 4 * var(--figma-lobby-gap, 0.5rem)) / 5))
+  );
+  max-width: 100%;
+  flex: 0 0 auto;
+  min-width: 0;
+  opacity: 0;
+  animation: figma-lobby-pop 0.5s ease forwards;
+}
+
+.figma-lobby-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(3.625rem, 100%);
+  height: min(3.625rem, 100%);
+  aspect-ratio: 1;
+  box-sizing: border-box;
+  border-radius: 1.8125rem; /* 29px */
+  flex-shrink: 0;
+}
+
+.figma-lobby-avatar--blue {
+  background: #83e4ff;
+}
+.figma-lobby-avatar--pink {
+  background: #ff9ec9;
+}
+.figma-lobby-avatar--green {
+  background: #cae893;
+}
+
+/* @ux/icon: <use fill="currentColor" /> — set color for glyph fill */
+.figma-lobby-avatar__icon {
+  display: block;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  object-fit: contain;
+  color: #000;
+}
+
+.figma-lobby-name {
+  margin: 0;
+  margin-top: 0.2rem;
+  min-height: 2.4em; /* ~2 lines at 1.2 line-height */
+  max-width: 100%;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-family: "Manrope", system-ui, sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  text-transform: capitalize;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.figma-lobby-cell--blue .figma-lobby-name {
+  color: #10cbff;
+}
+.figma-lobby-cell--pink .figma-lobby-name {
+  color: #ff9ec9;
+}
+.figma-lobby-cell--green .figma-lobby-name {
+  color: #cae893;
+}
+
+@keyframes figma-lobby-pop {
+  from {
+    opacity: 0;
+    transform: translateY(0.4rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .figma-lobby-cell {
+    animation: none;
+    opacity: 1;
+  }
 }
 
 .figma-error {
