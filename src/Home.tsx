@@ -46,7 +46,6 @@ export function Home({ onJoined }: Props) {
     setErr(null);
     const n = name.trim();
     if (n.length < 1) {
-      setErr("Add your name.");
       return;
     }
     if (n.length > 32) {
@@ -111,9 +110,9 @@ export function Home({ onJoined }: Props) {
       <header className="figma-topbar figma-landing__chrome">
         <div className="figma-brand">April Vibe Coding Recess</div>
         <nav className="figma-nav-menus" aria-hidden="true">
-          <span className="figma-menu figma-menu--cyan">Menu</span>
-          <span className="figma-menu figma-menu--pink">Menu</span>
-          <span className="figma-menu figma-menu--lime">Menu</span>
+          <span className="figma-menu figma-menu--cyan">Rules</span>
+          <span className="figma-menu figma-menu--pink">Prompts</span>
+          <span className="figma-menu figma-menu--lime">Standings</span>
         </nav>
         <div className="figma-topbar-cta">
           <button type="button" className="figma-btn-start" disabled={busy} onClick={join}>
@@ -138,18 +137,33 @@ export function Home({ onJoined }: Props) {
           <label className="sr" htmlFor="player-name">
             Your name
           </label>
-          <input
-            id="player-name"
-            className="figma-input"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && join()}
-            placeholder="Your name"
-            maxLength={32}
-            autoComplete="name"
-            autoFocus
-          />
+          <div className="figma-join-row">
+            <div className="figma-name-pill-outer">
+              <div className="figma-name-pill-inner">
+                <input
+                  id="player-name"
+                  className="figma-name-pill__input"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && !busy && join()}
+                  placeholder="Enter your name"
+                  maxLength={32}
+                  autoComplete="name"
+                  autoFocus
+                />
+              </div>
+            </div>
+            <button
+              type="button"
+              className="figma-name-submit"
+              disabled={busy}
+              onClick={join}
+              aria-label="Join with your name"
+            >
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
         </div>
 
         {err && <p className="figma-error">{err}</p>}

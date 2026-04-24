@@ -116,12 +116,24 @@ p {
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 1rem;
+  /* Min gap on small screens; grows with viewport so extra width (after 60px side inset) shows up between items */
+  gap: clamp(0.5rem, 0.65rem + 2.75vw, 4.5rem);
   padding: 1.25rem 3.75rem 0.5rem; /* 20px / 60px (Figma 891:7995) */
   max-width: 1440px;
   margin: 0 auto;
   width: 100%;
   box-sizing: border-box;
+}
+
+.figma-topbar.figma-landing__chrome {
+  /* Full-bleed row: do not use .figma-topbar’s max-width + auto margins or content sits in a 1440px column with huge outer gutters */
+  max-width: none;
+  margin: 0;
+  height: 120px;
+  width: 100%;
+  /* 60px from viewport edge; inner row gap is on .figma-topbar */
+  padding: 1.25rem 60px 0.5rem;
+  text-align: center;
 }
 
 .figma-topbar--in-app {
@@ -204,10 +216,12 @@ p {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 1.5rem 3.75rem 3rem;
+  /* Extra bottom padding: flex centers in the inner area, so the stack sits *above* true viewport center (reliable; transform was easy to “miss”) */
+  padding: 1.5rem 3.75rem clamp(4.5rem, 14dvh, 8rem);
   max-width: 1440px;
   margin: 0 auto;
   width: 100%;
+  min-height: 0;
   box-sizing: border-box;
 }
 
@@ -246,9 +260,87 @@ p {
 }
 
 .figma-join-field {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   width: 100%;
-  max-width: 22rem;
-  margin: 0.5rem 0 0.75rem;
+  margin: clamp(1.75rem, 4.5dvh, 2.75rem) 0 0.75rem;
+}
+
+/* Figma 892:34406 — name pill + gap + arrow = 575px total (471 + 24 + 80) */
+.figma-join-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  width: 575px;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.figma-name-pill-outer {
+  flex: 1 1 0;
+  min-width: 0;
+  display: block;
+  padding: 1.45px;
+  border-radius: 50.765px;
+  /* Stroke: teal/cyan emphasis top & bottom, deeper sides — node 892:34292 (gradient stroke) */
+  background: linear-gradient(
+    180deg,
+    #4fd0eb 0%,
+    #3a6570 12%,
+    #33515a 28%,
+    #2a3f47 50%,
+    #33515a 72%,
+    #3a6b78 88%,
+    #6fe8ff 100%
+  );
+}
+
+.figma-name-pill-inner {
+  height: 80px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 0 1.45rem 0 1.813rem; /* ~ pr 23 / pl 29 @ Figma scale */
+  background: #1b1b1b;
+  border-radius: 49.315px;
+  min-width: 0;
+}
+
+.figma-name-submit {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  padding: 0;
+  box-sizing: border-box;
+  border: 1.455px solid #fff;
+  border-radius: 50.909px;
+  background: #fff;
+  color: #0c0b0b;
+  font-family: "Carlito", "Source Sans 3", system-ui, sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: capitalize;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s;
+}
+
+.figma-name-submit:hover:not(:disabled) {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
+  transform: scale(1.02);
+}
+
+.figma-name-submit:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .figma-input {
@@ -534,6 +626,36 @@ textarea:focus,
 select:focus {
   outline: 2px solid rgba(16, 203, 255, 0.3);
   border-color: var(--figma-cyan);
+}
+
+/* Figma 892:34294 — name field (wins over generic `input[type="text"]` above) */
+input[type="text"].figma-name-pill__input {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  color: #396a77;
+  font-family: "Menlo", "SFMono-Regular", ui-monospace, monospace;
+  font-size: 23.207px;
+  line-height: 1.2;
+  text-align: left;
+}
+
+input[type="text"].figma-name-pill__input::placeholder {
+  color: #396a77;
+  opacity: 1;
+}
+
+input[type="text"].figma-name-pill__input:focus,
+input[type="text"].figma-name-pill__input:focus-visible {
+  outline: none;
+  box-shadow: none;
+  border: none;
+  border-color: transparent;
 }
 
 textarea {
