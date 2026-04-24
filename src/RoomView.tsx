@@ -103,7 +103,9 @@ export function RoomView({ roomId, onLeave }: Props) {
   const [r1Text, setR1Text] = useState("");
   const [r3Line, setR3Line] = useState("");
   const [inAppCtaErr, setInAppCtaErr] = useState(false);
+  const [revealCtaNotHostErr, setRevealCtaNotHostErr] = useState(false);
   const ctaErrTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const revealCtaErrTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const uid = getAuth().currentUser?.uid || "";
   const me = uid ? members[uid] : undefined;
@@ -118,6 +120,11 @@ export function RoomView({ roomId, onLeave }: Props) {
       ctaErrTimer.current = null;
     }
     setInAppCtaErr(false);
+    if (revealCtaErrTimer.current) {
+      clearTimeout(revealCtaErrTimer.current);
+      revealCtaErrTimer.current = null;
+    }
+    setRevealCtaNotHostErr(false);
   }, []);
 
   const bumpNotHost = useCallback(() => {
@@ -129,9 +136,19 @@ export function RoomView({ roomId, onLeave }: Props) {
     }, INAPP_CTA_ERR_MS);
   }, []);
 
+  const bumpNotHostReveal = useCallback(() => {
+    setRevealCtaNotHostErr(true);
+    if (revealCtaErrTimer.current) clearTimeout(revealCtaErrTimer.current);
+    revealCtaErrTimer.current = setTimeout(() => {
+      setRevealCtaNotHostErr(false);
+      revealCtaErrTimer.current = null;
+    }, INAPP_CTA_ERR_MS);
+  }, []);
+
   useEffect(
     () => () => {
       if (ctaErrTimer.current) clearTimeout(ctaErrTimer.current);
+      if (revealCtaErrTimer.current) clearTimeout(revealCtaErrTimer.current);
     },
     []
   );
@@ -236,7 +253,7 @@ export function RoomView({ roomId, onLeave }: Props) {
     return Boolean((me.r3Guesses?.[tUid] || "").trim().length);
   }, [room, tUid, me, uid]);
 
-  /** Background icon drift: on for waiting phases and r3 guess “you’re in” full-page wait; form step stays static. */
+  /** Background icon drift: on for waiting phases, r3 guess wait, and final standings; form steps stay static. */
   const decorDriftEnabled = useMemo(() => {
     if (!room) return true;
     const p = room.phase;
@@ -244,6 +261,7 @@ export function RoomView({ roomId, onLeave }: Props) {
     if (p === "r1_writing" && (me?.r1Submitted || allR1Submitted)) return true;
     if (p === "r2_coding" && me?.r2VibeDone) return true;
     if (p === "r3_guess" && r3GuessInWaiting) return true;
+    if (p === "results" && room.resultsRevealed) return true;
     return false;
   }, [room, me, allR1Submitted, r3GuessInWaiting]);
 
@@ -317,13 +335,6 @@ export function RoomView({ roomId, onLeave }: Props) {
       })
       .sort((a, b) => b.total - a.total);
   }, [members, uids]);
-
-  const myPointsValue = useMemo((): { label: string; sub?: string } => {
-    if (!uid || !me) return { label: "—" };
-    if (room?.phase !== "results" && !room?.resultsRevealed) return { label: "—", sub: "earned when results are open" };
-    const t = totalScoreForPlayer(uid, members);
-    return { label: String(t.total) };
-  }, [uid, me, room?.phase, room?.resultsRevealed, members]);
 
   // ——— Host actions ———
   async function goR1IntroToWriting() {
@@ -526,7 +537,6 @@ export function RoomView({ roomId, onLeave }: Props) {
   const currentPresenter = room.r3CurrentPresenter ? members[room.r3CurrentPresenter] : null;
   const answerText = currentPresenter?.r1Prompt || "";
 
-  const showPointsBar = room.phase === "results" && room.resultsRevealed;
   const isLastR3Reveal =
     (room.r3PresentedUids?.length ?? 0) + 1 >= uids.length && uids.length > 0;
   const topCta: { label: string; onAction: () => void; show: boolean; disabled?: boolean } | null = (() => {
@@ -559,6 +569,9 @@ export function RoomView({ roomId, onLeave }: Props) {
         onAction: hostR3RevealContinue,
         disabled: busy,
       };
+    }
+    if (p === "results" && room.resultsRevealed) {
+      return { show: true, label: "New Round", onAction: hostResetEntireSession, disabled: busy };
     }
     return null;
   })();
@@ -663,16 +676,6 @@ export function RoomView({ roomId, onLeave }: Props) {
           </>
         ) : (
       <div className="figma-content shell-figma-inner">
-        {showPointsBar && me && (
-          <div className="mypoints-bar" role="status" aria-live="polite" style={{ marginBottom: 12 }}>
-            <div>
-              <div className="label">You · {me.name} · your points (total)</div>
-              {myPointsValue.sub && <div className="label" style={{ fontSize: "0.75rem" }}>{myPointsValue.sub}</div>}
-            </div>
-            <div className="value">{myPointsValue.label}</div>
-          </div>
-        )}
-
         {err && <p className="muted" style={{ color: "var(--err)", marginTop: 0 }}>{err}</p>}
 
         {room.phase === "r1_intro" && (
@@ -958,13 +961,8 @@ export function RoomView({ roomId, onLeave }: Props) {
               <>
                 <div className="reveal reveal--hidden-prompt">Prompt hidden</div>
                 <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: 8,
-                    marginTop: 32,
-                  }}
+                  className="figma-inline-cta-with-host-msg"
+                  style={{ marginTop: 32 }}
                 >
                   <InAppCtaButton
                     label="Reveal"
@@ -974,8 +972,17 @@ export function RoomView({ roomId, onLeave }: Props) {
                       void hostRevealAnswer();
                     }}
                     isHost={isHost}
-                    onNotHost={bumpNotHost}
+                    onNotHost={bumpNotHostReveal}
                   />
+                  {revealCtaNotHostErr && (
+                    <p
+                      className="figma-host-only-msg figma-host-only-msg--inline"
+                      role="status"
+                      aria-live="polite"
+                    >
+                      for host only
+                    </p>
+                  )}
                 </div>
               </>
             )}
@@ -983,9 +990,10 @@ export function RoomView({ roomId, onLeave }: Props) {
         )}
 
         {room.phase === "results" && room.resultsRevealed && (
-          <div className="figma-card">
-            <h2>Final results</h2>
-            {scores.length > 0 && <h2 style={{ marginTop: 12 }}>Podium</h2>}
+          <div className="figma-card figma-card--instruction">
+            <h2 className="figma-card-title figma-card-title--left" style={{ marginTop: 0 }}>
+              Final Results
+            </h2>
             {scores.length > 0 && (
               <div className="podium" aria-label="Top three">
                 {scores.length === 1 && (
@@ -1036,7 +1044,11 @@ export function RoomView({ roomId, onLeave }: Props) {
                 )}
               </div>
             )}
-            {room.podiumVisible === true && <h2 style={{ marginTop: 18 }}>Full rankings</h2>}
+            {room.podiumVisible === true && (
+              <h2 className="figma-card-title figma-card-title--left" style={{ marginTop: 18, marginBottom: 12 }}>
+                Rankings
+              </h2>
+            )}
             {room.podiumVisible === true && (
               <table className="standings">
                 <thead>
@@ -1082,56 +1094,6 @@ export function RoomView({ roomId, onLeave }: Props) {
                   ))}
                 </tbody>
               </table>
-            )}
-            {isHost && room.podiumVisible === true && (
-              <p className="hint" style={{ marginTop: 10 }}>
-                Auto = sum of word matches; adjust manual for fairness.
-              </p>
-            )}
-            <h3 style={{ marginTop: 20, fontSize: 16 }}>Every prompt & all guesses (full table)</h3>
-            {uids.length > 0 && (
-              <div style={{ marginTop: 8 }}>
-                {uids
-                  .map((authorId) => members[authorId])
-                  .filter(Boolean)
-                  .sort((a, b) => a!.name.localeCompare(b!.name))
-                  .map((m) => {
-                    if (!m) return null;
-                    const authorId = m.id;
-                    const answerKey = m.r1Prompt || "";
-                    return (
-                      <div key={authorId} style={{ marginBottom: "1.5rem" }}>
-                        <h4 style={{ margin: "0 0 0.3rem" }}>{m.name}</h4>
-                        <p className="label" style={{ marginBottom: 4 }}>
-                          Actual prompt
-                        </p>
-                        <div className="reveal" style={{ borderColor: "rgba(61,220,132,0.35)", marginBottom: 8 }}>
-                          <HighlightText as="div" text={answerKey} target={answerKey} />
-                        </div>
-                        <p className="label" style={{ margin: "0.3rem 0" }}>
-                          What everyone guessed
-                        </p>
-                        {uids
-                          .filter((gId) => gId !== authorId)
-                          .map((gId) => {
-                            const guesser = members[gId];
-                            if (!guesser) return null;
-                            const gText = (guesser.r3Guesses && guesser.r3Guesses[authorId]) || "";
-                            return (
-                              <div className="guess-reveal-line" key={gId} style={{ marginBottom: 6 }}>
-                                <strong>{guesser.name}:</strong>{" "}
-                                {gText.trim() ? (
-                                  <HighlightText as="span" text={gText} target={answerKey} />
-                                ) : (
-                                  <span className="muted">(no guess)</span>
-                                )}
-                              </div>
-                            );
-                          })}
-                      </div>
-                    );
-                  })}
-              </div>
             )}
           </div>
         )}

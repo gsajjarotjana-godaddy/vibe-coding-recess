@@ -543,6 +543,27 @@ ul.figma-session-subtitle--bullets {
   pointer-events: none;
 }
 
+/** In-card CTAs: message follows the button in document flow (e.g. R3 Reveal) */
+.figma-inline-cta-with-host-msg {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.figma-host-only-msg--inline {
+  position: static;
+  left: auto;
+  transform: none;
+  top: auto;
+  width: auto;
+  max-width: 16rem;
+  margin: 0;
+  white-space: normal;
+  text-align: center;
+  align-self: center;
+}
+
 .figma-btn-arrow {
   font-size: 1.1rem;
   line-height: 1;
