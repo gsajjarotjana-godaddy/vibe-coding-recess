@@ -19,10 +19,6 @@ import type { MemberDoc, RoomDoc } from "./lib/types";
 import { R1_TEMPLATES } from "./lib/game";
 import { FigmaHomeDecor } from "./FigmaHomeDecor";
 import { getHostMemberId, sortMembersByJoinOrder } from "./lib/host";
-import SparklesIcon from "@ux/icon/sparkles";
-import "@ux/icon/sparkles/index.css";
-import LightningBoltIcon from "@ux/icon/lightning-bolt";
-import "@ux/icon/lightning-bolt/index.css";
 
 type Props = {
   onEnterGame: () => void;
@@ -47,6 +43,15 @@ const LOBBY_HUES = ["blue", "pink", "green"] as const;
 
 const HOST_ONLY_TIMER_MS = 2800;
 
+const lobbyBase = import.meta.env.BASE_URL;
+
+/** Icons in /public/figma — match circle hue (blue → pink → green) */
+function lobbyIconSrc(hue: (typeof LOBBY_HUES)[number]) {
+  if (hue === "green") return `${lobbyBase}figma/lightbulb.svg`;
+  if (hue === "blue") return `${lobbyBase}figma/sparkles.svg`;
+  return `${lobbyBase}figma/lightning-bolt.svg`; /* pink */
+}
+
 type MemberItem = { id: string; name: string };
 
 function LobbyPlayerCell({ m, index }: { m: MemberItem; index: number }) {
@@ -57,23 +62,13 @@ function LobbyPlayerCell({ m, index }: { m: MemberItem; index: number }) {
       style={{ animationDelay: `${Math.min(index, 8) * 35}ms` }}
     >
       <div className={`figma-lobby-avatar figma-lobby-avatar--${hue}`}>
-        {index % 4 === 0 ? (
-          <SparklesIcon
-            width={24}
-            height={24}
-            className="figma-lobby-avatar__icon"
-            aria-hidden
-            focusable={false}
-          />
-        ) : (
-          <LightningBoltIcon
-            width={24}
-            height={24}
-            className="figma-lobby-avatar__icon"
-            aria-hidden
-            focusable={false}
-          />
-        )}
+        <img
+          src={lobbyIconSrc(hue)}
+          width={24}
+          height={24}
+          className="figma-lobby-avatar__icon"
+          alt=""
+        />
       </div>
       <p className="figma-lobby-name">{m.name}</p>
     </div>

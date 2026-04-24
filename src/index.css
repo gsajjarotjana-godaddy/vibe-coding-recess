@@ -617,14 +617,14 @@ p {
   background: #cae893;
 }
 
-/* @ux/icon: <use fill="currentColor" /> — set color for glyph fill */
+/* Lobby SVGs in /public/figma — show black on colored circles (filter) */
 .figma-lobby-avatar__icon {
   display: block;
   width: 24px;
   height: 24px;
   flex-shrink: 0;
   object-fit: contain;
-  color: #000;
+  filter: brightness(0);
 }
 
 .figma-lobby-name {
