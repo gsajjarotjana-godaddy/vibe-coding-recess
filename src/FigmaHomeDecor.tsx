@@ -227,7 +227,15 @@ function scatterPos(c: (typeof scatteredClones)[0]): CSSProperties {
   return p;
 }
 
-export function FigmaHomeDecor() {
+type FigmaHomeDecorProps = {
+  /**
+   * When true, floating icons do not drift (in-session “flow” pages).
+   * Home/lobby use default (animated). Waiting-style screens pass false to enable drift.
+   */
+  staticFloat?: boolean;
+};
+
+export function FigmaHomeDecor({ staticFloat = false }: FigmaHomeDecorProps) {
   const floatEls = useRef<(HTMLDivElement | null)[]>([]);
   const bodies = useRef<Body[] | null>(null);
 
@@ -253,6 +261,7 @@ export function FigmaHomeDecor() {
         };
       });
     }
+    if (staticFloat) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const B = bodies.current;
     let last = performance.now();
@@ -304,10 +313,13 @@ export function FigmaHomeDecor() {
     };
     h = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(h);
-  }, []);
+  }, [staticFloat]);
 
   return (
-    <div className="figma-deco-root" aria-hidden="true">
+    <div
+      className={"figma-deco-root" + (staticFloat ? " figma-deco-root--static-float" : "")}
+      aria-hidden="true"
+    >
       {/* left-line.svg — bottom-left viewport edge, Figma px size (no viewport scaling) */}
       <div style={vector2Box}>
         <img

@@ -11,6 +11,7 @@ export function createInitialRoomDoc(createdAt: number): RoomDoc {
   return {
     phase: "lobby",
     createdAt,
+    sessionOpen: false,
     r1StartedAt: null,
     r1DurationSec: 120,
     r2DurationMins: 12,
@@ -19,11 +20,15 @@ export function createInitialRoomDoc(createdAt: number): RoomDoc {
     r3GuessingUnlocked: false,
     resultsRevealed: false,
     podiumVisible: false,
+    r3CurrentPresenter: null,
+    r3PresentedUids: [],
+    r3PickedRevealed: false,
+    r3AnswerRevealed: false,
   };
 }
 
 /**
- * Remove every member and reset the room to lobby. Next joiner (by join time) becomes host.
+ * Remove every member and reset the room to lobby. Next joiner (earliest) becomes host.
  */
 export async function resetEntireSession(db: Firestore, roomId: string): Promise<void> {
   const membersCol = collection(db, "rooms", roomId, "members");

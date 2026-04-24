@@ -1,5 +1,28 @@
 import type { MemberDoc } from "./types";
 
+/** R1: minimum words for a valid freeform prompt. */
+export const R1_MIN_WORDS = 10;
+
+export function countWords(s: string): number {
+  return s.trim().split(/\s+/).filter(Boolean).length;
+}
+
+export function allGuessedForTarget(
+  members: Record<string, MemberDoc & { id: string }>,
+  uids: string[],
+  targetUid: string
+): boolean {
+  return uids
+    .filter((id) => id !== targetUid)
+    .every((id) => (members[id]?.r3Guesses?.[targetUid] || "").trim().length > 0);
+}
+
+export function pickNextPresenter(uids: string[], presentedUids: string[]): string | null {
+  const pool = uids.filter((u) => !presentedUids.includes(u));
+  if (pool.length === 0) return null;
+  return pool[Math.floor(Math.random() * pool.length)]!;
+}
+
 export const R1_TEMPLATES: { id: number; line: string }[] = [
   { id: 0, line: "A single-page app that helps people ___" },
   { id: 1, line: "A tiny tool that makes ___ feel less overwhelming" },
@@ -14,7 +37,6 @@ export const R1_TEMPLATES: { id: number; line: string }[] = [
 export const EXAMPLE_PROMPTS: string[] = [
   "A 3-button Pomodoro with confetti when a session ends",
   "A one-screen weather strip with a moody gradient background",
-  "A name-tag maker: type a name, get a big silly badge to screenshot",
   "A counter for “cups of water today” with a tiny plant that grows",
   "A random lunch picker that only uses emojis and checkboxes",
 ];

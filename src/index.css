@@ -121,6 +121,10 @@ p {
   overflow: visible;
 }
 
+.figma-deco-root--static-float .figma-deco-float {
+  will-change: auto;
+}
+
 .figma-deco-artboard {
   position: absolute;
   left: 0;
@@ -173,6 +177,123 @@ p {
   border-bottom: 1px solid rgba(51, 81, 90, 0.4);
   padding: 0.9rem 1.25rem;
   margin: 0;
+}
+
+.figma-topbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  width: 100%;
+  justify-content: space-between;
+}
+
+.figma-inapp-cta-wrap {
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  min-width: 8rem;
+}
+
+.figma-inapp-cta-wrap .figma-btn-start {
+  min-width: 10rem;
+}
+
+.figma-inapp-cta-err {
+  width: 100%;
+  text-align: center;
+  color: var(--err);
+  font-size: 0.85rem;
+  margin: 0.35rem 0 0;
+  font-family: "Menlo", "SFMono-Regular", ui-monospace, monospace;
+}
+
+.figma-session-page {
+  margin-top: 0.25rem;
+  margin-bottom: 0.5rem;
+  text-align: left;
+}
+
+.figma-session-title {
+  font-size: 40px;
+  line-height: 1.1;
+  font-weight: 400;
+  margin: 0 0 0.75rem;
+  max-width: 100%;
+  text-align: left;
+}
+
+.figma-session-title__accent {
+  font-family: "Menlo", "SFMono-Regular", ui-monospace, monospace;
+  color: var(--figma-cyan-bright);
+}
+
+.figma-session-subtitle {
+  text-align: left;
+  color: #fff;
+  margin: 0 0 1.25rem;
+  font-size: 1.05rem;
+  line-height: 1.45;
+  max-width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+  white-space: pre-line;
+}
+
+.figma-waiting-title {
+  font-size: 1.2rem;
+  font-weight: 500;
+  margin: 0 0 0.4rem;
+}
+
+.figma-waiting-sub {
+  color: var(--figma-text-muted);
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.word-hit--pop {
+  position: relative;
+  color: #7fe8b5;
+  animation: wordHitPulse 0.4s ease;
+}
+
+.word-hit--pop::after {
+  content: "+1";
+  position: absolute;
+  right: 0;
+  top: 0;
+  font-size: 0.6rem;
+  color: #aef4c4;
+  font-weight: 600;
+  font-family: "Menlo", "SFMono-Regular", ui-monospace, monospace;
+  animation: plusOneRise 0.65s ease-out forwards;
+  pointer-events: none;
+  text-shadow: 0 0 6px rgba(100, 255, 150, 0.5);
+}
+
+@keyframes plusOneRise {
+  0% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.8);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-18px) scale(1);
+  }
+}
+
+@keyframes wordHitPulse {
+  0% {
+    filter: brightness(1.2);
+  }
+  100% {
+    filter: brightness(1);
+  }
 }
 
 .figma-brand {
@@ -252,6 +373,14 @@ p {
   max-width: 100%;
   justify-content: center;
   overflow: visible;
+}
+
+/* In-session: phase pill stacked above host CTA (same top bar as landing) */
+.figma-topbar-cta__wrap--session {
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: min(100%, 200px);
 }
 
 .figma-topbar-cta__wrap .figma-btn-start {
@@ -770,6 +899,17 @@ p {
   margin-top: 1rem;
 }
 
+/** Instruction step: left-align title, subtitle, and content (e.g. examples) */
+.figma-card--instruction {
+  text-align: left;
+}
+
+.figma-instruction-stack {
+  width: 100%;
+  text-align: left;
+  align-self: stretch;
+}
+
 .figma-card-title {
   font-size: 1.2rem;
   font-weight: 600;
@@ -1080,7 +1220,7 @@ table.standings tr:hover td {
 ul.examples {
   margin: 0.3rem 0 0 1.1rem;
   color: var(--muted);
-  font-size: 0.88rem;
+  font-size: 1.05rem; /* match .figma-session-subtitle */
 }
 
 ul.members {

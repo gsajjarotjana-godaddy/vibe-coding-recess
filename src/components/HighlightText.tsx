@@ -6,12 +6,14 @@ type Props = {
   target: string;
   as?: "span" | "div";
   className?: string;
+  /** +1 pop animation on each matched word (reveal view) */
+  withPop?: boolean;
 };
 
 /**
  * Splits on whitespace; non-break segments are checked against the target’s scoring word set.
  */
-export function HighlightText({ text, target, as: Tag = "span", className }: Props) {
+export function HighlightText({ text, target, as: Tag = "span", className, withPop }: Props) {
   const set = useMemo(() => getScoringTokenSet(target), [target]);
   const parts = text.split(/(\s+)/);
 
@@ -23,7 +25,7 @@ export function HighlightText({ text, target, as: Tag = "span", className }: Pro
         const match = isWordInTargetSet(p, set);
         if (match) {
           return (
-            <span key={i} className="word-hit">
+            <span key={i} className={withPop ? "word-hit word-hit--pop" : "word-hit"}>
               {p}
             </span>
           );

@@ -15,8 +15,9 @@ import {
 import { getAuth } from "firebase/auth";
 import { getFirebase } from "./firebase";
 import { getPublicRoomId } from "./config/room";
-import type { MemberDoc, RoomDoc } from "./lib/types";
+import type { MemberDoc } from "./lib/types";
 import { R1_TEMPLATES } from "./lib/game";
+import { createInitialRoomDoc } from "./lib/roomReset";
 import { FigmaHomeDecor } from "./FigmaHomeDecor";
 import { getHostMemberId, sortMembersByJoinOrder } from "./lib/host";
 import { resetEntireSession } from "./lib/roomReset";
@@ -39,6 +40,7 @@ const defaultMember = (): Omit<MemberDoc, "name" | "joinedAt"> => ({
   r3Guesses: {},
   r3Submitted: false,
   manualPointDelta: 0,
+  r2VibeDone: false,
 });
 
 /** blue → pink → green — Figma 892:34345 (colored 58px circle, icon, name) */
@@ -217,6 +219,22 @@ export function Home({ onEnterGame }: Props) {
     return () => unsub();
   }, [lobbyMode, db, roomId]);
 
+  /** Non-hosts auto-enter session when host opens it (sessionOpen). */
+  useEffect(() => {
+    if (!lobbyMode || !uid) return;
+    const roomRef = doc(db, "rooms", roomId);
+    const unsub = onSnapshot(roomRef, (snap) => {
+      if (!snap.exists()) return;
+      const d = snap.data() as { sessionOpen?: boolean };
+      if (!d.sessionOpen) return;
+      const mRef = doc(db, "rooms", roomId, "members", uid);
+      void getDoc(mRef).then((ms) => {
+        if (ms.exists()) onEnterGame();
+      });
+    });
+    return () => unsub();
+  }, [lobbyMode, uid, db, roomId, onEnterGame]);
+
   useEffect(
     () => () => {
       if (hostOnlyTimer.current) clearTimeout(hostOnlyTimer.current);
@@ -243,19 +261,7 @@ export function Home({ onEnterGame }: Props) {
       const roomRef = doc(db, "rooms", roomId);
       const roomSnap = await getDoc(roomRef);
       if (!roomSnap.exists()) {
-        const room: RoomDoc = {
-          phase: "lobby",
-          createdAt: Date.now(),
-          r1StartedAt: null,
-          r1DurationSec: 120,
-          r2DurationMins: 12,
-          r2EndsAt: null,
-          presentationOrder: null,
-          r3GuessingUnlocked: false,
-          resultsRevealed: false,
-          podiumVisible: false,
-        };
-        await setDoc(roomRef, room);
+        await setDoc(roomRef, createInitialRoomDoc(Date.now()));
       }
 
       const nameDup = query(collection(db, "rooms", roomId, "members"), where("name", "==", n));
@@ -286,10 +292,24 @@ export function Home({ onEnterGame }: Props) {
     }
   }
 
-  function handleLetsStart() {
+  async function handleLetsStart() {
     if (!lobbyMode) return;
     if (isHost) {
       clearHostOnlyMsg();
+      setErr(null);
+      if (memberList.length < 2) {
+        setErr("Need at least 2 people to start.");
+        return;
+      }
+      try {
+        await updateDoc(doc(db, "rooms", roomId), {
+          sessionOpen: true,
+          phase: "r1_intro" as const,
+        });
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "Could not open session");
+        return;
+      }
       onEnterGame();
       return;
     }
